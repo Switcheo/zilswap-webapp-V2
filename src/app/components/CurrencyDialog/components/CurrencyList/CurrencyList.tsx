@@ -72,20 +72,20 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
 
   const getTokenBalance = (token: TokenInfo): BigNumber => {
     if (!walletState.wallet) return BIG_ZERO;
-    if (showContribution) {
-      const contribution = token.pool?.userContribution ?? BIG_ZERO;
-      return contribution as BigNumber;
-    } else {
+    // if (showContribution) {
+    //   const contribution = token.pool?.userContribution ?? BIG_ZERO;
+    //   return contribution as BigNumber;
+    // } else {
       const amount = token.balance;
       if (!amount) return BIG_ZERO;
 
       return new BigNumber(amount.toString());
-    }
+    // }
   };
-  const getContributionPercentage = (token: TokenInfo) => {
-    if (!walletState.wallet) return BIG_ZERO;
-    return (token.pool?.contributionPercentage ?? BIG_ZERO) as BigNumber;
-  };
+  // const getContributionPercentage = (token: TokenInfo) => {
+  //   if (!walletState.wallet) return BIG_ZERO;
+  //   return (token.pool?.contributionPercentage ?? BIG_ZERO) as BigNumber;
+  // };
 
   const onSelect = (token: TokenInfo) => {
     onSelectCurrency(token)
@@ -152,7 +152,7 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
                   })}
                 </Typography>
               )}
-              {showContribution && (
+              {/* {showContribution && (
                 <Typography align="right" color="textSecondary" variant="body2">
                   {moneyFormat(getContributionPercentage(token), {
                     maxFractionDigits: 2,
@@ -160,7 +160,7 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
                     showCurrency: false,
                   })}%
                 </Typography>
-              )}
+              )} */}
             </Box>
           </ContrastBox>
         </ButtonBase>

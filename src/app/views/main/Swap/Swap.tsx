@@ -1,27 +1,22 @@
-import React, { useEffect, useState } from "react";
-import { Box, Button, IconButton, InputLabel, OutlinedInput, Typography, makeStyles } from "@material-ui/core";
-import { WarningRounded } from "@material-ui/icons";
-import AddIcon from "@material-ui/icons/Add";
+import { Box, IconButton, makeStyles, Typography } from "@material-ui/core";
 import AutorenewIcon from '@material-ui/icons/Autorenew';
 import BrightnessLowIcon from '@material-ui/icons/BrightnessLowRounded';
-import RemoveIcon from "@material-ui/icons/RemoveRounded";
 import { fromBech32Address } from "@zilliqa-js/crypto";
-import { validation as ZilValidation } from "@zilliqa-js/util";
-import BigNumber from "bignumber.js";
-import cls from "classnames";
-import { useDispatch, useSelector } from "react-redux";
-import { useHistory, useLocation } from "react-router";
-import { CONTRACTS } from "zilswap-sdk/lib/constants";
-import { ZWAP_TOKEN_CONTRACT } from "core/zilswap/constants";
-import { ZilswapConnector, toBasisPoints } from "core/zilswap";
-import { CurrencyInput, FancyButton, Notifications, ProportionSelect, ShowAdvanced, Text } from "app/components";
+import { CurrencyInput, FancyButton, Notifications, ProportionSelect, ShowAdvanced } from "app/components";
 import MainCard from "app/layouts/MainCard";
 import { actions } from "app/store";
 import { ExactOfOptions, LayoutState, RootState, SwapFormState, TokenInfo, TokenState, WalletObservedTx, WalletState } from "app/store/types";
 import { AppTheme } from "app/theme/types";
 import { bnOrZero, useAsyncTask, useBlacklistAddress, useNetwork, useSearchParam, useToaster } from "app/utils";
-import { BIG_ONE, BIG_ZERO, PlaceholderStrings, ZIL_ADDRESS } from "app/utils/constants";
-import { ArkClient } from "core/utilities/ark";
+import { BIG_ONE, BIG_ZERO, ZIL_ADDRESS } from "app/utils/constants";
+import BigNumber from "bignumber.js";
+import cls from "classnames";
+import { toBasisPoints, ZilswapConnector } from "core/zilswap";
+import { ZWAP_TOKEN_CONTRACT } from "core/zilswap/constants";
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useHistory, useLocation } from "react-router";
+import { ZILSWAPV2_CONTRACTS } from "zilswap-sdk/lib/constants";
 import SwapDetail from "./components/SwapDetail";
 import { ReactComponent as SwapSVG } from "./swap_logo.svg";
 
@@ -220,6 +215,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
   const [recipientAddrBlacklisted, setRecipientAddrBlacklisted] = useState(false);
   const toaster = useToaster();
 
+  // Use default form
   useEffect(() => {
     if (!swapFormState.forNetwork) return
 
@@ -250,6 +246,8 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     if (queryInput === queryOutput && queryOutput) {
       return;
     }
+
+    // Obtain tokenInfo
     const newInToken = queryInput ? tokenState.tokens[queryInput] : null;
     const newOutToken = queryOutput ? tokenState.tokens[queryOutput] : null;
 
@@ -274,10 +272,11 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     if (outToken) queryParams.set("tokenOut", outToken.address);
 
     history.replace({ search: queryParams.toString() });
-    
+
     // eslint-disable-next-line
   }, [swapFormState.inToken, swapFormState.outToken]);
 
+  // Blacklist recipients
   useEffect(() => {
     const blacklisted = !!swapFormState.recipientAddress ? isBlacklisted(swapFormState.recipientAddress) : false;
     setRecipientAddrBlacklisted(blacklisted)
@@ -290,11 +289,10 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     }));
   }
 
-  const isWrap = swapFormState.inToken?.isWzil || swapFormState.outToken?.isWzil;
-
-  const onReverse = () => {
+  // Function to reverse the swap direction
+  const onReverse = async () => {
     setButtonRotate(!buttonRotate);
-    const result = calculateAmounts({
+    const result = await calculateAmounts({
       inToken: swapFormState.outToken,
       outToken: swapFormState.inToken,
     });
@@ -306,6 +304,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     }
   };
 
+  // Used when a percentage is chosen
   const onPercentage = (percentage: number) => {
     const { inToken } = swapFormState;
     if (!inToken) return;
@@ -316,7 +315,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     onInAmountChange(netGasAmount.shiftedBy(-inToken.decimals).toString());
   };
 
-  const calculateAmounts = (props: CalculateAmountProps = {}) => {
+  const calculateAmounts = async (props: CalculateAmountProps = {}) => {
     let _inAmount: BigNumber = props.inAmount || swapFormState.inAmount;
     let _outAmount: BigNumber = props.outAmount || swapFormState.outAmount;
     const _inToken: TokenInfo | undefined = props.inToken || swapFormState.inToken;
@@ -341,32 +340,29 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     let isInsufficientReserves = false;
 
     if (srcAmount.abs().gt(0)) {
-      if (_inToken?.isWzil || _outToken?.isWzil) {
-        dstAmount = srcAmount.shiftedBy(-srcToken.decimals);
+      const expectedAmount = new BigNumber(await ZilswapConnector.getExchangeRate({
+        amount: srcAmount.decimalPlaces(0),
+        exactOf: _exactOf,
+        tokenInID: _inToken!.address,
+        tokenOutID: _outToken!.address,
+      }))
+
+      if (expectedAmount.isNaN() || expectedAmount.isNegative()) {
+        isInsufficientReserves = true;
+        expectedExchangeRate = BIG_ZERO;
+        expectedSlippage = 0;
+        dstAmount = BIG_ZERO;
       } else {
-        const rateResult = ZilswapConnector.getExchangeRate({
-          amount: srcAmount.decimalPlaces(0),
-          exactOf: _exactOf,
-          tokenInID: _inToken!.address,
-          tokenOutID: _outToken!.address,
-        });
-  
-        if (rateResult.expectedAmount.isNaN() || rateResult.expectedAmount.isNegative()) {
-          isInsufficientReserves = true;
-          expectedExchangeRate = BIG_ZERO;
-          expectedSlippage = 0;
-          dstAmount = BIG_ZERO;
-        } else {
-          const expectedAmountUnits = rateResult.expectedAmount.shiftedBy(-dstToken.decimals);
-          const srcAmountUnits = srcAmount.shiftedBy(-srcToken.decimals);
-          expectedExchangeRate = expectedAmountUnits.div(srcAmountUnits).pow(_exactOf === "in" ? 1 : -1).abs();
-  
-          expectedSlippage = rateResult.slippage.shiftedBy(-2).toNumber();
-  
-          dstAmount = rateResult.expectedAmount.shiftedBy(-dstToken?.decimals || 0).decimalPlaces(dstToken?.decimals || 0);
-        }
+        const expectedAmountUnits = expectedAmount.shiftedBy(-dstToken.decimals);
+        const srcAmountUnits = srcAmount.shiftedBy(-srcToken.decimals);
+        expectedExchangeRate = expectedAmountUnits.div(srcAmountUnits).pow(_exactOf === "in" ? 1 : -1).abs();
+
+        // expectedSlippage = slippage.shiftedBy(-2).toNumber();
+
+        dstAmount = expectedAmount.shiftedBy(-dstToken?.decimals || 0).decimalPlaces(dstToken?.decimals || 0);
       }
-    } else {
+    }
+    else {
       expectedExchangeRate = BIG_ZERO;
 
       dstAmount = BIG_ZERO;
@@ -391,10 +387,11 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     };
   };
 
-  const onOutAmountChange = (amount: string = "0", reverseTokens?: boolean) => {
+  // Calculates the amountIn when user types in amountOut
+  const onOutAmountChange = async (amount: string = "0", reverseTokens?: boolean) => {
     let outAmount = new BigNumber(amount);
     if (outAmount.isNaN() || outAmount.isNegative() || !outAmount.isFinite()) outAmount = BIG_ZERO;
-    const result = calculateAmounts({
+    const result = await calculateAmounts({
       exactOf: "out",
       outAmount,
       ...reverseTokens && {
@@ -412,10 +409,11 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
       ...result,
     }));
   };
-  const onInAmountChange = (amount: string = "0", reverseTokens?: boolean) => {
+  // Calculates the amountOut when user types in amountIn
+  const onInAmountChange = async (amount: string = "0", reverseTokens?: boolean) => {
     let inAmount = new BigNumber(amount);
     if (inAmount.isNaN() || inAmount.isNegative() || !inAmount.isFinite()) inAmount = BIG_ZERO;
-    const result = calculateAmounts({
+    const result = await calculateAmounts({
       exactOf: "in",
       inAmount,
       ...reverseTokens && {
@@ -433,7 +431,8 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
       ...result,
     }));
   };
-  const onOutCurrencyChange = (token: TokenInfo) => {
+  // Used when the currency out changes
+  const onOutCurrencyChange = async (token: TokenInfo) => {
     let { inToken } = swapFormState;
     if (swapFormState.inToken?.address === token.address) {
       if (token.isWzil) {
@@ -452,7 +451,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
       inToken = tokenState.tokens[ZIL_ADDRESS];
     }
 
-    const result = calculateAmounts({ inToken, outToken: token });
+    const result = await calculateAmounts({ inToken, outToken: token });
 
     setFormState({
       ...formState,
@@ -465,11 +464,12 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
       ...result,
     }));
   };
-  const onInCurrencyChange = (token: TokenInfo) => {
+  // Used when the currency in changes
+  const onInCurrencyChange = async (token: TokenInfo) => {
     let { outToken } = swapFormState;
     if (swapFormState.outToken?.address === token.address) {
       if (token.isWzil) {
-        outToken =  tokenState.tokens[ZIL_ADDRESS];
+        outToken = tokenState.tokens[ZIL_ADDRESS];
       } else {
         return;
       }
@@ -484,7 +484,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
       outToken = tokenState.tokens[ZIL_ADDRESS];
     }
 
-    const result = calculateAmounts({ inToken: token, outToken });
+    const result = await calculateAmounts({ inToken: token, outToken });
 
     setFormState({
       ...formState,
@@ -498,14 +498,10 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     }));
   };
 
-  const onRecipientAddressChange = (event: any) => {
-    dispatch(actions.Swap.update({
-      recipientAddress: event.target.value,
-    }));
-  };
-
   const onSwap = () => {
     const { outToken, inToken, inAmount, outAmount, exactOf, slippage, expiry, recipientAddress } = swapFormState;
+
+    // Checks if the input
     if (!inToken || !outToken) return;
     if (inAmount.isZero() || outAmount.isZero()) return;
     if (loading) return;
@@ -513,7 +509,8 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     clearApproveError();
 
     runSwap(async () => {
-      const amount: BigNumber = exactOf === "in" ? inAmount.shiftedBy(inToken.decimals) : outAmount.shiftedBy(outToken.decimals);
+      const exactIn = exactOf === "in"
+      const amount: BigNumber = exactIn ? inAmount.shiftedBy(inToken.decimals) : outAmount.shiftedBy(outToken.decimals);
       if (amount.isNaN() || !amount.isFinite())
         throw new Error("Invalid input amount");
 
@@ -530,6 +527,12 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
         tokenOutID: outToken.address,
         amount, exactOf,
         maxAdditionalSlippage: toBasisPoints(slippage).toNumber(),
+        ...exactIn && {
+          amountOutMin: outAmount.shiftedBy(outToken.decimals)
+        },
+        ...!exactIn && {
+          amountInMax: inAmount.shiftedBy(inToken.decimals)
+        },
         ...formState.showRecipientAddress && {
           recipientAddress,
         },
@@ -544,44 +547,6 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
       toaster("Submitted", { hash: walletObservedTx.hash });
     });
   };
-
-  const onWrap = () => {
-    const { outToken, inToken, inAmount, outAmount } = swapFormState;
-    if (!inToken || !outToken) return;
-    if (inAmount.isZero() || outAmount.isZero()) return;
-    if (loading) return;
-
-    clearApproveError();
-
-    runWrap(async () => {
-      const amount: BigNumber = inAmount.shiftedBy(inToken.decimals);
-      if (amount.isNaN() || !amount.isFinite())
-        throw new Error("Invalid input amount");
-
-      const balance: BigNumber = bnOrZero(inToken.balance)
-
-      if (inAmount.shiftedBy(inToken.decimals).gt(balance)) {
-        throw new Error(`Insufficient ${inToken.symbol} balance.`)
-      }
-
-      const arkClient = new ArkClient(network);
-      const zilswap = ZilswapConnector.getSDK();
-      let result;
-
-      if (inToken.isZil) {
-        result = await arkClient.wrapZil(amount, zilswap);
-      } else {
-        result = await arkClient.unwrapZil(amount, zilswap);
-      }
-
-      zilswap.observeTx({
-        hash: result.id!,
-        deadline: Number.MAX_SAFE_INTEGER,
-      });
-
-      toaster(`${inToken.isZil ? "Wrap" : "Unwrap"} token txn submitted!`, { hash: result.id });
-    });
-  }
 
   const onApproveTx = () => {
     if (!swapFormState.inToken) return;
@@ -621,21 +586,10 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     });
   };
 
-  const onEnterRecipientAddress = () => {
-    const address = swapFormState.recipientAddress;
-    let error = undefined;
-    if (address && !ZilValidation.isBech32(address)) {
-      error = "Invalid address format";
-    }
-
-    if (error !== errorRecipientAddress)
-      setErrorRecipientAddress(error);
-  };
-
   const { outToken, inToken } = swapFormState;
   let showTxApprove = false;
   if (inToken && !inToken?.isZil) {
-    const zilswapContractAddress = CONTRACTS[network];
+    const zilswapContractAddress = ZILSWAPV2_CONTRACTS[network];
     const byte20ContractAddress = fromBech32Address(zilswapContractAddress).toLowerCase();
     const unitlessInAmount = swapFormState.inAmount.shiftedBy(swapFormState.inToken!.decimals);
     showTxApprove = bnOrZero(inToken?.allowances?.[byte20ContractAddress]).comparedTo(unitlessInAmount) < 0;
@@ -694,70 +648,23 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             onAmountChange={onOutAmountChange}
             onCurrencyChange={onOutCurrencyChange} />
 
-          {enableChangeRecipient && (
-            <Box display="flex" flexDirection="column" marginTop={3}>
-              {!formState.showRecipientAddress && (
-                <Button variant="text" className={classes.addAddressButton} onClick={() => setFormState({ ...formState, showRecipientAddress: true })}>
-                  <AddIcon className={classes.accordionButton} />
-                  <span>Add Receiving Address</span>
-                </Button>
-              )}
-              {formState.showRecipientAddress && (
-                <>
-                  <InputLabel className={classes.addressLabel}>
-                    <RemoveIcon className={classes.accordionButton} onClick={() => setFormState({ ...formState, showRecipientAddress: false })} />
-                    <span>Receiving Address</span>
-                    {!!errorRecipientAddress && <Typography className={classes.addressError} component="span" color="error">{errorRecipientAddress}</Typography>}
-                  </InputLabel>
-                  <OutlinedInput
-                    onBlur={onEnterRecipientAddress}
-                    className={classes.addressInput}
-                    value={swapFormState.recipientAddress || ""}
-                    placeholder={PlaceholderStrings.ZilAddress}
-                    onChange={onRecipientAddressChange} />
-                  {recipientAddrBlacklisted && (
-                    <Text className={classes.errorText}>
-                      <WarningRounded color="error" />  Address appears to be a known CEX/DEX address. Please ensure you have entered a correct address!
-                    </Text>
-                  )}
-                  <Text className={classes.warningText}>
-                    <WarningRounded color="inherit" />  Do not send tokens directly to an exchange address as it may result in failure to receive your fund.
-                  </Text>
-                </>
-              )}
-            </Box>
-          )}
-
           <Typography className={classes.errorMessage} color="error">{error?.message || errorApproveTx?.message || errorWrap?.message}</Typography>
           {swapFormState.isInsufficientReserves && (
             <Typography color="error">Pool reserve is too small to fulfill desired output.</Typography>
           )}
-          
-          {isWrap ?
-            <FancyButton walletRequired
-              loading={loadingWrap}
-              className={classes.actionButton}
-              showTxApprove={showTxApprove}
-              loadingTxApprove={loadingApproveTx}
-              onClickTxApprove={onApproveTx}
-              variant="contained"
-              color="primary"
-              disabled={!inToken || !outToken || recipientAddrBlacklisted}
-              onClick={onWrap}>
-              {inToken?.isWzil ? "Unwrap" : "Wrap"}
-            </FancyButton>
-           :  <FancyButton walletRequired
-                loading={loading}
-                className={classes.actionButton}
-                showTxApprove={showTxApprove}
-                loadingTxApprove={loadingApproveTx}
-                onClickTxApprove={onApproveTx}
-                variant="contained"
-                color="primary"
-                disabled={!inToken || !outToken || recipientAddrBlacklisted}
-                onClick={onSwap}>
-                Swap
-              </FancyButton>
+
+          {<FancyButton walletRequired
+            loading={loading}
+            className={classes.actionButton}
+            showTxApprove={showTxApprove}
+            loadingTxApprove={loadingApproveTx}
+            onClickTxApprove={onApproveTx}
+            variant="contained"
+            color="primary"
+            disabled={!inToken || !outToken || recipientAddrBlacklisted}
+            onClick={onSwap}>
+            Swap
+          </FancyButton>
           }
           <SwapDetail token={outToken || undefined} />
         </Box>

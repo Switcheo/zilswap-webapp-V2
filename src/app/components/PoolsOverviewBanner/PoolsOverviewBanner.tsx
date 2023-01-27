@@ -99,7 +99,7 @@ const PoolsOverviewBanner: React.FC<Props> = (props: Props) => {
 
     const previousLiquidity = Object.values(tokenState.tokens).reduce((accum, token) => {
       const liquidityChange = statsState.liquidityChange24h[token.address] ?? BIG_ZERO;
-      const totalContribution = bnOrZero(token.pool?.totalContribution);
+      const totalContribution = bnOrZero(token.pool!.totalContribution); // hack
       const previousContribution = totalContribution.minus(liquidityChange);
       if (previousContribution.isZero()) return accum;
 

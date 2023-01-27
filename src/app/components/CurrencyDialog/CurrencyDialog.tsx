@@ -123,13 +123,13 @@ const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProp
       if (!walletState.wallet) return 0;
       if (lhs.isZil) return -1;
       if (rhs.isZil) return 1;
-      if (showContribution) {
-        // sort first by contribution
-        const difference = (rhs.pool?.userContribution || BIG_ZERO)
-          .comparedTo(lhs.pool?.userContribution || BIG_ZERO);
-        // then lexicographically by symbol
-        return difference !== 0 ? difference : lhs.symbol.localeCompare(rhs.symbol);
-      }
+      // if (showContribution) {
+      //   // sort first by contribution
+      //   const difference = (rhs.pool?.userContribution || BIG_ZERO)
+      //     .comparedTo(lhs.pool?.userContribution || BIG_ZERO);
+      //   // then lexicographically by symbol
+      //   return difference !== 0 ? difference : lhs.symbol.localeCompare(rhs.symbol);
+      // }
       const difference = new BigNumber(rhs.balance?.toString() || 0).comparedTo(lhs.balance?.toString() || 0);
       return difference !== 0 ? difference : lhs.symbol.localeCompare(rhs.symbol);
     };

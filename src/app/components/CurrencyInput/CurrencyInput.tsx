@@ -223,8 +223,8 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
     maxFractionDigits: 6,
   });
 
-  const userPoolTokenPercent = poolToken?.pool?.contributionPercentage.shiftedBy(-2);
-  const inPoolAmount = poolToken?.pool?.tokenReserve.times(userPoolTokenPercent || 0);
+  // const userPoolTokenPercent = poolToken?.pool?.contributionPercentage.shiftedBy(-2);
+  // const inPoolAmount = poolToken?.pool?.tokenReserve.times(userPoolTokenPercent || 0);
 
   const formatOpts: MoneyFormatterOptions = {
     compression: poolToken?.decimals,
@@ -240,7 +240,7 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
       setTokenBalance(new BigNumber(tokenBalance!.toString()));
     } else {
       if (!token.pool) return setTokenBalance(null);
-      setTokenBalance(token.pool!.userContribution);
+      setTokenBalance(token.pool![0].userContribution); // temporary hack
     }
   }, [walletState.wallet, token, showContribution]);
 
@@ -283,21 +283,21 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
           {balanceLabel}:{' '}
           {tokenBalance
             ? moneyFormat(tokenBalance, {
-                symbol: token?.symbol,
-                compression: token?.decimals,
-                showCurrency: false,
-              })
+              symbol: token?.symbol,
+              compression: token?.decimals,
+              showCurrency: false,
+            })
             : overrideBalance
-            ? overrideBalance.toString()
-            : '-'}
+              ? overrideBalance.toString()
+              : '-'}
         </Typography>
       )}
 
-      {showPoolBalance && (
+      {/* {showPoolBalance && (
         <Typography className={classes.balance} variant="body2">
           Balance in Pool: {!!poolToken && formatMoney(inPoolAmount || 0, formatOpts)}
         </Typography>
-      )}
+      )} */}
 
       <OutlinedInput
         className={cls(classes.inputRow, {

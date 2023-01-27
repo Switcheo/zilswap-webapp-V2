@@ -5,7 +5,7 @@ import BigNumber from "bignumber.js";
 import cls from "classnames";
 import { useSelector } from "react-redux";
 import SwapHorizontalCircleIcon from '@material-ui/icons/SwapHorizRounded';
-import { HelpInfo, KeyValueDisplay, PotentialRewardInfo } from "app/components";
+import { HelpInfo, KeyValueDisplay } from "app/components";
 import { LayoutState, RootState, TokenInfo, TokenState } from "app/store/types";
 import { AppTheme } from "app/theme/types";
 import { useMoneyFormatter } from "app/utils";
@@ -109,7 +109,7 @@ const PoolDetail: React.FC<PoolDetailProps> = (props: PoolDetailProps) => {
       </span>
     )
   };
-  const getExchangeRateValue= () => {
+  const getExchangeRateValue = () => {
     if (!token?.pool) return <span className={classes.textWrapper}>-</span>;
     const zilToken = tokenState.tokens[ZIL_ADDRESS];
     const rate = token.pool.exchangeRate.shiftedBy(token!.decimals - zilToken.decimals);
@@ -127,7 +127,7 @@ const PoolDetail: React.FC<PoolDetailProps> = (props: PoolDetailProps) => {
     <Box {...rest} className={cls(classes.root, className)}>
       <KeyValueDisplay kkey={"Price"} mb="8px">
         {getExchangeRateValue()}
-        { " " }
+        {" "}
         <SwapHorizontalCircleIcon onClick={() => setReversedRate(!reversedRate)}
           className={cls(classes.switchIcon, {
             [classes.activeSwitchIcon]: reversedRate,
@@ -141,9 +141,9 @@ const PoolDetail: React.FC<PoolDetailProps> = (props: PoolDetailProps) => {
         <span className={cls(classes.textColoured, classes.textBold)}>{getUserPoolShare()}</span>
         {getShareValue()} <HelpInfo className={classes.helpInfo} placement="top" title="Your %  share in relation to the current pool size." />
       </KeyValueDisplay>
-      {layoutState.showPoolType === "add" && (
+      {/* {layoutState.showPoolType === "add" && (
         <PotentialRewardInfo />
-      )}
+      )} */}
     </Box>
   );
 };

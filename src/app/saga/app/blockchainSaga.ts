@@ -1,6 +1,6 @@
 import { Channel, EventChannel, channel, eventChannel } from 'redux-saga';
 import { call, cancelled, fork, put, select, take, takeEvery } from 'redux-saga/effects';
-import { AppState, ObservedTx, TxReceipt, TxStatus, Zilswap } from 'zilswap-sdk';
+import { AppState, ObservedTx, TxReceipt, TxStatus, ZilSwapV2 } from 'zilswap-sdk';
 import { ZiloAppState } from 'zilswap-sdk/lib/zilo';
 
 import { Blockchain, CarbonSDK } from 'carbon-js-sdk';
@@ -272,7 +272,7 @@ function* initialize(
   txChannel: Channel<TxObservedPayload>,
   stateChannel: Channel<StateChangeObservedPayload>
 ) {
-  let sdk: Zilswap | null = null;
+  let sdk: ZilSwapV2 | null = null;
   try {
     const { wallet: prevWallet } = getWallet(yield select());
     yield put(actions.Layout.addBackgroundLoading('initChain', 'INIT_CHAIN'));
@@ -284,7 +284,7 @@ function* initialize(
     const { network: prevNetwork } = getBlockchain(yield select());
 
     logger('init chain zilswap sdk');
-    sdk = new Zilswap(network, providerOrKey ?? undefined, {
+    sdk = new ZilSwapV2(network, providerOrKey ?? undefined, {
       rpcEndpoint: RPCEndpoints[network],
     });
 
@@ -308,24 +308,26 @@ function* initialize(
     // load tokens
     const appState: AppState = yield call([sdk, sdk.getAppState]);
     const zilswapTokens = appState.tokens;
-    const tokens: SimpleMap<TokenInfo> = Object.keys(zilswapTokens).reduce(
+    const tokens: SimpleMap<TokenInfo> = Object.keys(zilswapTokens!).reduce(
       (acc, addr) => {
-        const tkn = zilswapTokens[addr];
-        const isHuny = tkn.address === 'zil1m3m5jqqcaemtefnlk795qpw59daukra8prc43e';
-        acc[tkn.address] = {
+        const tkn = zilswapTokens![addr];
+        const isHuny = tkn!.address === 'zil1m3m5jqqcaemtefnlk795qpw59daukra8prc43e';
+        acc[tkn!.address] = {
           initialized: false,
-          registered: tkn.registered,
-          whitelisted: tkn.whitelisted,
-          isWzil: tkn.address === WZIL_TOKEN_CONTRACT[network],
-          isZil: tkn.address === ZIL_ADDRESS,
-          isZwap: tkn.address === ZWAP_TOKEN_CONTRACT[network],
-          address: tkn.address,
-          decimals: tkn.decimals,
-          symbol: isHuny ? tkn.symbol.toUpperCase() : tkn.symbol,
-          name: tkn.name,
+          // registered: tkn!.registered,
+          // whitelisted: tkn!.whitelisted,
+          registered: false,
+          whitelisted: false,
+          isWzil: tkn!.address === WZIL_TOKEN_CONTRACT[network],
+          isZil: tkn!.address === ZIL_ADDRESS,
+          isZwap: tkn!.address === ZWAP_TOKEN_CONTRACT[network],
+          address: tkn!.address,
+          decimals: tkn!.decimals,
+          symbol: isHuny ? tkn!.symbol.toUpperCase() : tkn!.symbol,
+          name: tkn!.name,
           balance: undefined,
           allowances: {},
-          pool: sdk!.getPool(tkn.address) || undefined,
+          pool: ZilswapConnector!.getTokenPools(tkn!.address) || undefined,
           blockchain: Blockchain.Zilliqa,
         };
         return acc;
@@ -430,7 +432,7 @@ function* watchReloadPoolTx() {
   }
 }
 
-function* teardown(sdk: Zilswap | null) {
+function* teardown(sdk: ZilSwapV2 | null) {
   if (sdk) {
     yield call([sdk, sdk.teardown]);
     ZilswapConnector.setSDK(null);
@@ -441,7 +443,7 @@ function* teardown(sdk: Zilswap | null) {
 function* watchInitialize() {
   const txChannel: Channel<TxObservedPayload> = channel();
   const stateChannel: Channel<StateChangeObservedPayload> = channel();
-  let sdk: Zilswap | null = null;
+  let sdk: ZilSwapV2 | null = null;
   try {
     yield takeEvery(txChannel, txObserved);
     yield takeEvery(stateChannel, stateChangeObserved);

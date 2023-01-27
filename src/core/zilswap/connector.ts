@@ -1,11 +1,11 @@
-import { fromBech32Address } from "@zilliqa-js/crypto";
+import { BIG_ZERO, ZIL_ADDRESS } from "app/utils/constants";
 import BigNumber from "bignumber.js";
-import { ObservedTx, Pool, TokenDetails, Zilswap } from "zilswap-sdk";
+import { ObservedTx, TokenDetails, ZilSwapV2 } from "zilswap-sdk";
 import { Network } from "zilswap-sdk/lib/constants";
-import { BIG_ZERO } from "app/utils/constants";
 
 import { logger } from "core/utilities";
-import { ConnectedWallet, } from "core/wallet/ConnectedWallet";
+import { ConnectedWallet } from "core/wallet/ConnectedWallet";
+import { Pool } from "zilswap-sdk/lib";
 
 export interface ConnectProps {
   wallet: ConnectedWallet;
@@ -33,27 +33,33 @@ export interface ApproveTxProps {
   spenderAddress?: string
 };
 
-export interface AddTokenProps {
-  address: string;
-};
-
 export interface AddLiquidityProps {
-  tokenID: string;
-  zilAmount: BigNumber;
-  tokenAmount: BigNumber;
-  maxExchangeRateChange?: number;
+  tokenAID: string;
+  tokenBID: string;
+  poolID: string;
+  amountADesiredStr: string;
+  amountBDesiredStr: string;
+  amountAMinStr: string;
+  amountBMinStr: string;
+  reserve_ratio_allowance: number
 };
 
 export interface RemoveLiquidityProps {
-  tokenID: string;
-  contributionAmount: BigNumber;
-  maxExchangeRateChange?: number;
+  tokenAID: string;
+  tokenBID: string;
+  poolID: string;
+  liquidityStr: string;
+  amountAMinStr: string;
+  amountBMinStr: string;
 };
+
 export interface SwapProps {
   exactOf: "in" | "out";
   tokenInID: string;
   tokenOutID: string;
   amount: BigNumber;
+  amountInMax?: BigNumber;
+  amountOutMin?: BigNumber;
   maxAdditionalSlippage?: number;
   recipientAddress?: string;
 };
@@ -75,7 +81,7 @@ export interface TokenContractAllowancesState {
   [index: string]: TokenContractBalancesState;
 }
 
-let zilswap: Zilswap | null = null
+let zilswapV2: ZilSwapV2 | null = null
 
 /**
  * Checks transaction receipt for error, and throw the top level exception
@@ -84,40 +90,28 @@ let zilswap: Zilswap | null = null
  * @param txReceipt `@zilliqa-js` blockchain transaction receipt
  */
 const handleObservedTx = (observedTx: ObservedTx) => {
-  // // @ts-ignore
-  // if (txReceipt.exceptions?.length) {
-  //   // @ts-ignore
-  //   throw txReceipt.exceptions[0];
-  // }
+  // @ts-ignore
+  if (txReceipt.exceptions?.length) {
+    // @ts-ignore
+    throw txReceipt.exceptions[0];
+  }
 };
 
-/**
- * Abstraction class for Zilswap SDK.
- *
- * @member network {@link Zilswap.Network}
- */
+
 export class ZilswapConnector {
-  static setSDK = (sdk: Zilswap | null) => {
-    zilswap = sdk
+  static setSDK = (sdk: ZilSwapV2 | null) => {
+    zilswapV2 = sdk
   }
 
-  static getSDK = (): Zilswap => {
-    if (!zilswap) throw new Error('not initialized');
+  static getSDK = (): ZilSwapV2 => {
+    if (!zilswapV2) throw new Error('not initialized');
 
-    return zilswap
-  }
-
-  static getToken = (tokenID: string): TokenDetails | undefined => {
-    if (!zilswap) return undefined
-
-    const { tokens } = zilswap.getAppState();
-
-    return Object.values(tokens).find((token) => token.address === tokenID);
+    return zilswapV2
   }
 
   static getCurrentBlock = () => {
-    if (!zilswap) throw new Error('not initialized');
-    return zilswap.getCurrentBlock()
+    if (!zilswapV2) throw new Error('not initialized');
+    return zilswapV2.getCurrentBlock()
   }
 
   /**
@@ -127,24 +121,17 @@ export class ZilswapConnector {
    * @returns the pool instance
    * @throws "not initialized" if `ZilswapConnector.setSDK` has not been called.
    */
-  static getPool = (tokenID: string): Pool | null => {
-    if (!zilswap) throw new Error('not initialized');
-    return zilswap.getPool(tokenID);
-  };
+  // static getPool = (tokenID: string): Pool | null => {
+  //   if (!zilswap) throw new Error('not initialized');
+  //   return zilswap.getPool(tokenID);
+  // };
 
-  /**
-   *
-   *
-   * @throws "not initialized" if `ZilswapConnector.setSDK` has not been called.
-   */
-  static adjustedForGas = (intendedAmount: BigNumber, balance?: BigNumber): BigNumber => {
-    if (!zilswap) throw new Error('not initialized');
-    if (!balance) balance = new BigNumber(intendedAmount);
-    const gasLimit = zilswap._txParams.gasLimit.toString();
-    const netGasAmount = BigNumber.min(BigNumber.max(balance.minus(gasLimit), BIG_ZERO), intendedAmount);
-    return netGasAmount;
-  };
+  static getTokenPools = (tokenAID: string) => {
+    if (!zilswapV2) throw new Error('not initialized');
 
+    const tokenPools = zilswapV2.getTokenPools()
+    return tokenPools![tokenAID]
+  };
 
   /**
    *
@@ -152,49 +139,54 @@ export class ZilswapConnector {
    * @throws "not initialized" if `ZilswapConnector.setSDK` has not been called.
    */
   static setDeadlineBlocks = (blocks: number) => {
-    if (!zilswap) throw new Error('not initialized');
-    return zilswap.setDeadlineBlocks(blocks);
+    if (!zilswapV2) throw new Error('not initialized');
+    return zilswapV2.setDeadlineBlocks(blocks);
   };
 
   /**
-   *
-   * @throws "not initialized" if `ZilswapConnector.setSDK` has not been called.
-   */
+  *
+  * @throws "not initialized" if `ZilswapConnector.setSDK` has not been called.
+  */
   static approveTokenTransfer = async (props: ApproveTxProps) => {
-    if (!zilswap) throw new Error('not initialized');
+    if (!zilswapV2) throw new Error('not initialized');
     logger(props.tokenID);
     logger(props.tokenAmount.toString());
     logger(props.spenderAddress);
-    const observedTx = await zilswap.approveTokenTransferIfRequired(props.tokenID, props.tokenAmount, props.spenderAddress);
+    const observedTx = await zilswapV2.approveTokenTransferIfRequired(props.tokenID, props.tokenAmount, props.spenderAddress!);
     if (observedTx)
       handleObservedTx(observedTx);
 
     return observedTx;
   };
 
-  /**
-   *
-   * @throws "not initialized" if `ZilswapConnector.setSDK` has not been called.
-   */
-  static addPoolToken = async (props: AddTokenProps) => {
-    if (!zilswap) throw new Error('not initialized');
-    const tokenExists = await zilswap.addToken(props.address);
-    if (!tokenExists)
-      throw new Error("token not found");
-    const { tokens } = zilswap.getAppState();
-    const byte20Address = fromBech32Address(props.address);
-    return tokens[byte20Address.toLowerCase()];
-  };
+  static getToken = (tokenID: string): TokenDetails | undefined => {
+    if (!zilswapV2) return undefined
+
+    const tokens = zilswapV2.getTokens();
+    if (tokens![tokenID]) { return tokens![tokenID] }
+    return undefined
+  }
 
   /**
    *
    *
    * @throws "not initialized" if `ZilswapConnector.setSDK` has not been called.
    */
+  // Used when token In is zil
+  static adjustedForGas = (intendedAmount: BigNumber, balance?: BigNumber): BigNumber => {
+    if (!zilswapV2) throw new Error('not initialized');
+    if (!balance) balance = new BigNumber(intendedAmount);
+    const gasLimit = zilswapV2._txParams.gasLimit.toString();
+    const netGasAmount = BigNumber.min(BigNumber.max(balance.minus(gasLimit), BIG_ZERO), intendedAmount);
+    return netGasAmount;
+  };
+
+  // Calculates the estimated amountIn and amountOut depending on which token is given in exact
   static getExchangeRate = (props: ExchangeRateQueryProps) => {
-    if (!zilswap) throw new Error('not initialized');
-    const queryFunction = props.exactOf === "in" ?
-      zilswap.getRatesForInput.bind(zilswap) : zilswap.getRatesForOutput.bind(zilswap);
+    if (!zilswapV2) throw new Error('not initialized');
+    const exactIn = props.exactOf === "in"
+    const queryFunction = exactIn ?
+      zilswapV2.getOutputForExactInput.bind(zilswapV2) : zilswapV2.getInputForExactOutput.bind(zilswapV2);
 
     if (!props.suppressLogs) {
       logger(props.exactOf);
@@ -202,63 +194,119 @@ export class ZilswapConnector {
       logger(props.tokenOutID);
       logger(props.amount.toString());
     }
-    return queryFunction(
-      props.tokenInID,
-      props.tokenOutID,
-      props.amount.toString());
-  };
 
-  /**
-   * Abstraction for Zilswap SDK functions
-   * `addLiquidity`
-   *
-   * @param tokenID string
-   * @param zilAmount BigNumber
-   * @param tokenAmount BigNumber
-   * @param maxExchangeRateChange number?
-   * @see zilswap-sdk documentation
-   *
-   * @throws "not initialized" if `ZilswapConnector.setSDK` has not been called.
-   */
+    if (exactIn) {
+      // getOutputForExactInput
+      return (queryFunction(
+        props.tokenInID,
+        props.tokenOutID,
+        props.amount.toString(),
+        '0' // arbitrary number just to obtain the output
+      ))
+    } else {
+      // getInputForExactOutput
+      return (queryFunction(
+        props.tokenInID,
+        props.tokenOutID,
+        props.amount.toString(),
+        '100000000000000000000000000000000000000' // arbitrary number just to obtain the input
+      ))
+    }
+  }
+
+  static deployAndAddPool = async (token0ID: string, token1ID: string, initAmpBps: string) => {
+    if (!zilswapV2) throw new Error('not initialized');
+    await zilswapV2.deployAndAddPool(token0ID, token1ID, initAmpBps)
+  }
+
+  static deployPool = async (token0ID: string, token1ID: string, initAmpBps: string) => {
+    if (!zilswapV2) throw new Error('not initialized');
+    await zilswapV2.deployPool(token0ID, token1ID, initAmpBps)
+  }
+
+  static addPool = async (poolID: string) => {
+    if (!zilswapV2) throw new Error('not initialized');
+    await zilswapV2.addPool(poolID)
+  }
+
+  // Applies for both AddLiquidity and AddLiquidityZIL
   static addLiquidity = async (props: AddLiquidityProps) => {
-    if (!zilswap) throw new Error('not initialized');
-    logger(props.tokenID);
-    logger(props.zilAmount.toString());
-    logger(props.tokenAmount.toString());
-    logger(props.maxExchangeRateChange);
-    const observedTx = await zilswap.addLiquidity(
-      props.tokenID,
-      props.zilAmount.toString(),
-      props.tokenAmount.toString(),
-      props.maxExchangeRateChange);
-    handleObservedTx(observedTx);
+    if (!zilswapV2) throw new Error('not initialized');
+    logger(props.tokenAID)
+    logger(props.tokenBID)
+    logger(props.poolID)
+    logger(props.amountADesiredStr)
+    logger(props.amountBDesiredStr)
+    logger(props.amountAMinStr)
+    logger(props.amountBMinStr)
+    logger(props.reserve_ratio_allowance)
 
-    return observedTx;
+    let observedTx: ObservedTx;
+    if (props.tokenBID === ZIL_ADDRESS) {
+      // zil-zrc2 pair
+      observedTx = await zilswapV2.addLiquidity(
+        props.tokenAID,
+        props.tokenBID,
+        props.poolID,
+        props.amountADesiredStr,
+        props.amountBDesiredStr,
+        props.amountAMinStr,
+        props.amountBMinStr,
+        props.reserve_ratio_allowance
+      );
+    }
+    else {
+      // zrc2-zrc2 pair
+      observedTx = await zilswapV2.addLiquidityZIL(
+        props.tokenAID,
+        props.poolID,
+        props.amountADesiredStr,
+        props.amountBDesiredStr,
+        props.amountAMinStr,
+        props.amountBMinStr,
+        props.reserve_ratio_allowance
+      );
+
+    }
+    handleObservedTx(observedTx!);
+
+    return observedTx!;
   };
 
-  /**
-   * Abstraction for Zilswap SDK functions
-   * `removeLiquidity`
-   *
-   * @param tokenID string
-   * @param contributionAmount BigNumber
-   * @param maxExchangeRateChange number?
-   * @see zilswap-sdk documentation
-   *
-   * @throws "not initialized" if `ZilswapConnector.setSDK` has not been called.
-   */
   static removeLiquidity = async (props: RemoveLiquidityProps) => {
-    if (!zilswap) throw new Error('not initialized');
-    logger(props.tokenID);
-    logger(props.contributionAmount.toString());
-    logger(props.maxExchangeRateChange);
-    const observedTx = await zilswap.removeLiquidity(
-      props.tokenID,
-      props.contributionAmount.toString(),
-      props.maxExchangeRateChange);
-    handleObservedTx(observedTx);
+    if (!zilswapV2) throw new Error('not initialized');
+    logger(props.tokenAID);
+    logger(props.tokenBID);
+    logger(props.poolID);
+    logger(props.liquidityStr);
+    logger(props.amountAMinStr);
+    logger(props.amountBMinStr);
 
-    return observedTx;
+    let observedTx: ObservedTx;
+    if (props.tokenBID === ZIL_ADDRESS) {
+      // zil-zrc2 pair
+      observedTx = await zilswapV2.removeLiquidity(
+        props.tokenAID,
+        props.tokenBID,
+        props.poolID,
+        props.liquidityStr,
+        props.amountAMinStr,
+        props.amountBMinStr
+      );
+    } else {
+      // zrc2-zrc2 pair
+      observedTx = await zilswapV2.removeLiquidityZIL(
+        props.tokenAID,
+        props.poolID,
+        props.liquidityStr,
+        props.amountAMinStr,
+        props.amountBMinStr
+      );
+    }
+
+    handleObservedTx(observedTx!);
+
+    return observedTx!;
   };
 
   /**
@@ -278,69 +326,55 @@ export class ZilswapConnector {
    * @throws "not initialized" if `ZilswapConnector.setSDK` has not been called.
    */
   static swap = async (props: SwapProps) => {
-    if (!zilswap) throw new Error('not initialized');
-    const swapFunction = props.exactOf === "in" ?
-      zilswap.swapWithExactInput.bind(zilswap) :
-      zilswap.swapWithExactOutput.bind(zilswap);
+    if (!zilswapV2) throw new Error('not initialized');
 
-    logger(props.exactOf);
-    logger(props.tokenInID);
-    logger(props.tokenOutID);
-    logger(props.amount.toString());
-    logger(props.maxAdditionalSlippage);
-    logger(props.recipientAddress);
+    const { exactOf, tokenInID, tokenOutID, amount, amountInMax, amountOutMin, maxAdditionalSlippage, recipientAddress } = props
+
+    // Check if the transaction involves ZIL
+    let isZilIn = tokenInID === ZIL_ADDRESS
+    let isZilOut = tokenOutID === ZIL_ADDRESS
 
     // TODO: proper token blacklist
-    if (props.tokenOutID === "zil13c62revrh5h3rd6u0mlt9zckyvppsknt55qr3u")
+    if (tokenOutID === "zil13c62revrh5h3rd6u0mlt9zckyvppsknt55qr3u")
       throw new Error("Suspected malicious token detected, swap disabled");
-    const observedTx = await swapFunction(
-      props.tokenInID,
-      props.tokenOutID,
-      props.amount.toString(),
-      props.maxAdditionalSlippage,
-      props.recipientAddress);
-    handleObservedTx(observedTx);
 
-    return observedTx;
-  };
+    logger(exactOf);
+    logger(tokenInID);
+    logger(tokenOutID);
+    logger(amount.toString());
+    logger(maxAdditionalSlippage);
+    logger(recipientAddress);
 
-  /**
-   * Abstraction for Zilswap SDK functions
-   * `Zilo.contribute`
-   *
-   * @param address string - ZILO contract address to contribute to
-   * @param amount BigNumber - ZIL amount to contribute
-   * @see zilswap-sdk documentation
-   *
-   * @throws "not initialized" if `ZilswapConnector.setSDK` has not been called.
-   */
-  static contributeZILO = async (props: ContributeZILOProps) => {
-    if (!zilswap) throw new Error('not initialized');
-    logger(props.address);
-    logger(props.amount.toString());
-    const observedTx = await zilswap.zilos[fromBech32Address(props.address).toLowerCase()]!.contribute(props.amount.toString());
-    if (observedTx)
-      handleObservedTx(observedTx);
+    let observedTx: ObservedTx;
+    switch (props.exactOf) {
+      case "in":
+        if (isZilIn) {
+          observedTx = await zilswapV2.swapExactZILForTokens(tokenInID, tokenOutID, amount.toString(), amountOutMin!.toString(), maxAdditionalSlippage)
+        }
+        else if (isZilOut) {
+          observedTx = await zilswapV2.swapExactTokensForZIL(tokenInID, tokenOutID, amount.toString(), amountOutMin!.toString(), maxAdditionalSlippage)
+        }
+        else if (!isZilIn && !isZilOut) {
+          observedTx = await zilswapV2.swapExactTokensForTokens(tokenInID, tokenOutID, amount.toString(), amountOutMin!.toString(), maxAdditionalSlippage)
+        }
+        break;
+      case "out":
+        if (isZilIn) {
+          observedTx = await zilswapV2.swapZILForExactTokens(tokenInID, tokenOutID, amountInMax!.toString(), amount.toString(), maxAdditionalSlippage)
+        }
+        else if (isZilOut) {
+          observedTx = await zilswapV2.swapTokensForExactZIL(tokenInID, tokenOutID, amountInMax!.toString(), amount.toString(), maxAdditionalSlippage)
+        }
+        else if (!isZilIn && !isZilOut) {
+          observedTx = await zilswapV2.swapTokensForExactTokens(tokenInID, tokenOutID, amountInMax!.toString(), amount.toString(), maxAdditionalSlippage)
+        }
+        break;
+      default:
+        throw new Error("Invalid swap")
+    }
 
-    return observedTx;
-  };
+    handleObservedTx(observedTx!);
 
-  /**
-   * Abstraction for Zilswap SDK functions
-   * `Zilo.claim`
-   *
-   * @param address string - ZILO contract address to claim from
-   * @see zilswap-sdk documentation
-   *
-   * @throws "not initialized" if `ZilswapConnector.setSDK` has not been called.
-   */
-  static claimZILO = async (props: ClaimZILOProps) => {
-    if (!zilswap) throw new Error('not initialized');
-    logger(props.address);
-    const observedTx = await zilswap.zilos[fromBech32Address(props.address).toLowerCase()]!.claim();
-    if (observedTx)
-      handleObservedTx(observedTx);
-
-    return observedTx;
+    return observedTx!;
   };
 }

@@ -20,7 +20,7 @@ export type TokenInfo = {
   decimals: number;
   address: string;
   balance?: BigNumber;
-  pool?: Pool;
+  pool?: Pool[];
   allowances?: { [index: string]: string };
   blockchain: Blockchain;
 };
