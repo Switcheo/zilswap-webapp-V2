@@ -1,6 +1,6 @@
+import { SimpleMap } from "app/utils";
 import BigNumber from "bignumber.js";
 import { Pool } from "zilswap-sdk";
-import { SimpleMap } from "app/utils";
 
 export type TokenUSDValues = {
   balance: BigNumber;
@@ -13,17 +13,29 @@ export type TokenInfo = {
   isWzil: boolean;
   isZil: boolean;
   isZwap: boolean;
+  isPoolToken: boolean;
   registered: boolean;
   whitelisted: boolean;
   symbol: string;
   name?: string;
   decimals: number;
   address: string;
+  hash: string;
   balance?: BigNumber;
-  pool?: Pool[];
+
+  // @deprecated
+  pool?: Pool;
+
+  pools: Pool[];
   allowances?: { [index: string]: string };
   blockchain: Blockchain;
 };
+
+export interface PoolInfo {
+  token0: TokenInfo;
+  token1: TokenInfo;
+  pool: Pool;
+}
 
 export interface TokenState {
   initialized: boolean,

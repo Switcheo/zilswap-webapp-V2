@@ -1,10 +1,10 @@
-import React, { Suspense, useState, useMemo } from "react";
 import { Box, Hidden, LinearProgress } from "@material-ui/core";
 import { makeStyles } from "@material-ui/styles";
+import { ConnectWalletButton, DrawerComp, NavDrawer, TopBar } from "app/components";
+import { AppTheme } from "app/theme/types";
+import React, { Suspense, useMemo, useState } from "react";
 import { renderRoutes } from "react-router-config";
 import { useLocation } from "react-router-dom";
-import { ConnectWalletButton, NavDrawer, TopBar, DrawerComp, TBMBanner } from "app/components";
-import { AppTheme } from "app/theme/types";
 import TransactionDialog from "../TransactionDialog";
 import WalletDialog from "../WalletDialog";
 import { DevInfoBadge } from "./components";
@@ -71,9 +71,6 @@ const MainLayout: React.FC<React.HTMLAttributes<HTMLDivElement>> = (
       <main className={classes.content}>
         <DevInfoBadge />
         <Suspense fallback={<LinearProgress />}>
-          {currentPath !== "bridge" &&
-            <TBMBanner />
-          }
           {renderRoutes(route.routes)}
         </Suspense>
       </main>

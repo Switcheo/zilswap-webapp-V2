@@ -13,7 +13,7 @@ import { TxStatus } from "zilswap-sdk";
 import { Network } from "zilswap-sdk/lib/constants";
 import { truncate, useNetwork } from "app/utils";
 import { AppTheme } from "app/theme/types";
-import { BridgeState, RootState, TransactionState } from "app/store/types";
+import { RootState, TransactionState } from "app/store/types";
 
 interface Props extends BoxProps {
   message: string,
@@ -58,7 +58,6 @@ const NotificationItem = forwardRef<HTMLDivElement, Props>((props, ref) => {
   const classes = useStyles();
   const network = useNetwork();
   const transactionState = useSelector<RootState, TransactionState>(state => state.transaction);
-  const bridgeState = useSelector<RootState, BridgeState>(state => state.bridge);
   const [txStatus, setTxStatus] = useState<TxStatus | "pending" | "submitted" | undefined>();
 
   useEffect(() => {
@@ -74,14 +73,6 @@ const NotificationItem = forwardRef<HTMLDivElement, Props>((props, ref) => {
           providerRef.current.closeSnackbar(snackKey);
         } else {
           setTxStatus(tx.status);
-        }
-      }
-    })
-
-    bridgeState.bridgeTxs.forEach(tx => {
-      if (hash === tx.sourceTxHash) {
-        if (tx.depositTxConfirmedAt) {
-          setTxStatus("confirmed");
         }
       }
     })

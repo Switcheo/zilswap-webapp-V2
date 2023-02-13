@@ -1,16 +1,14 @@
-import React from 'react';
 import { Box, BoxProps, Button, CircularProgress } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
-import cls from 'classnames';
-import { useDispatch, useSelector } from 'react-redux';
-import { Link } from 'react-router-dom';
 import { ContrastBox, Text } from 'app/components';
-import { ReactComponent as NewLinkIcon } from 'app/components/new-link.svg';
 import { actions } from 'app/store';
 import { RootState, TokenInfo, TokenState, WalletState } from 'app/store/types';
 import { AppTheme } from 'app/theme/types';
 import { useTaskSubscriber } from 'app/utils';
-import { LoadingKeys } from 'app/utils/constants';
+import { BIG_ZERO, LoadingKeys } from 'app/utils/constants';
+import cls from 'classnames';
+import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { PoolInfoDropdown } from './components';
 
 interface Props extends BoxProps {}
@@ -47,7 +45,7 @@ const PoolManage: React.FC<Props> = (props: Props) => {
 
   const { tokens } = React.useMemo(() => {
     const tokens = Object.values(tokenState.tokens).reduce((accum, token) => {
-      if (token.pool?.contributionPercentage.gt(0)) accum.push(token);
+      if (token.isPoolToken && token.balance?.gt(BIG_ZERO)) accum.push(token);
       return accum;
     }, [] as TokenInfo[]);
 
@@ -108,7 +106,7 @@ const PoolManage: React.FC<Props> = (props: Props) => {
           <CircularProgress color="primary" />
         </ContrastBox>
       )}
-
+{/* 
       <Box display="flex" justifyContent="center" marginBottom={5}>
         <Button
           component={Link}
@@ -122,7 +120,7 @@ const PoolManage: React.FC<Props> = (props: Props) => {
             <NewLinkIcon className={classes.newLinkIcon} />
           </Box>
         </Button>
-      </Box>
+      </Box> */}
     </Box>
   );
 };

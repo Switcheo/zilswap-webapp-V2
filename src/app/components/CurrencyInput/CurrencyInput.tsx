@@ -1,26 +1,250 @@
-import React, { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
-import cls from 'classnames';
-import {
-  Box,
-  Button,
-  InputAdornment,
-  InputLabel,
-  OutlinedInput,
-  Typography,
-} from '@material-ui/core';
+import { Box, Button, InputAdornment, InputLabel, OutlinedInput, Typography } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
-import BigNumber from 'bignumber.js';
 import { CurrencyLogo } from 'app/components';
 import CurrencyDialog from 'app/components/CurrencyDialog';
-import { RootState, TokenInfo } from 'app/store/types';
+import { TokenInfo } from 'app/store/types';
 import { AppTheme } from 'app/theme/types';
-import { hexToRGBA, useMoneyFormatter } from 'app/utils';
+import { BIG_ZERO, hexToRGBA, useMoneyFormatter } from 'app/utils';
 import { formatSymbol } from 'app/utils/currencies';
-import { MoneyFormatterOptions } from 'app/utils/useMoneyFormatter';
-import { getWallet } from 'app/saga/selectors';
+import BigNumber from 'bignumber.js';
+import cls from 'classnames';
+import React, { useMemo, useState } from 'react';
 import { CurrencyDialogProps, CurrencyListType } from '../CurrencyDialog/CurrencyDialog';
+
+
+export interface CurrencyInputProps extends React.HTMLAttributes<HTMLFormElement> {
+  label?: string;
+  inputClassName?: string;
+  token: TokenInfo | null;
+  amount: string;
+  tokenList?: CurrencyListType;
+  showCurrencyDialog?: boolean;
+  fixedToken?: boolean;
+  disabled?: boolean;
+  hideBalance?: boolean;
+  showMaxButton?: boolean;
+  highestBid?: BigNumber;
+  dialogOpts?: Partial<CurrencyDialogProps>;
+  legacyZil?: boolean;
+  overrideBalance?: BigNumber;
+  balanceLabel?: string;
+
+  onCurrencyChange?: (token: TokenInfo) => void;
+  onAmountChange?: (value: string) => void;
+  onEditorBlur?: () => void;
+  onCloseDialog?: () => void;
+  onSelectMax?: () => void;
+  onEnterKeyPress?: () => void;
+}
+
+const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) => {
+  const {
+    children,
+    inputClassName,
+    className,
+    label,
+    fixedToken,
+    amount,
+    disabled,
+    showCurrencyDialog: showDialogOverride,
+    onCloseDialog: onCloseDialogListener,
+    hideBalance,
+    dialogOpts = {},
+    onAmountChange,
+    onCurrencyChange,
+    token,
+    onEditorBlur,
+    onSelectMax,
+    showMaxButton,
+    onEnterKeyPress,
+    tokenList = 'zil',
+    legacyZil = false,
+    overrideBalance,
+    balanceLabel = 'Balance',
+  } = props;
+  const classes = useStyles();
+  const moneyFormat = useMoneyFormatter({ maxFractionDigits: 5 });
+  const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
+  // const poolToken = useSelector<RootState, TokenInfo | null>(state => state.pool.token);
+
+  // const userPoolTokenPercent = poolToken?.pool?.contributionPercentage.shiftedBy(-2);
+  // const inPoolAmount = poolToken?.pool?.token1Reserve.times(userPoolTokenPercent || 0);
+
+  // const formatOpts: MoneyFormatterOptions = {
+  //   compression: poolToken?.decimals,
+  // };
+
+
+  const {
+    tokenBalance,
+  } = useMemo(() => {
+    const tokenBalance = token?.balance ?? BIG_ZERO;
+    return {
+      tokenBalance,
+    };
+  }, [token?.balance]);
+
+  const onCurrencySelect = (token: TokenInfo) => {
+    if (typeof onCurrencyChange === 'function') onCurrencyChange(token);
+    setShowCurrencyDialog(false);
+  };
+
+  const onChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (typeof onAmountChange === 'function') onAmountChange(event.target.value);
+  };
+
+  const onCloseDialog = () => {
+    setShowCurrencyDialog(false);
+    if (typeof onCloseDialogListener === 'function') onCloseDialogListener();
+  };
+
+  const clearPlaceholder = () => {
+    if (amount === '0' && typeof onAmountChange === 'function') onAmountChange('');
+  };
+
+  const onSubmitHandler = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (onEnterKeyPress) {
+      onEnterKeyPress();
+    }
+  };
+
+  return (
+    <form
+      className={cls(classes.form, className)}
+      noValidate
+      autoComplete="off"
+      onSubmit={onSubmitHandler}
+    >
+      {label && <InputLabel className={cls(classes.label)}>{label}</InputLabel>}
+
+      {!hideBalance && (
+        <Typography className={cls(classes.balance)} variant="body1">
+          {balanceLabel}:{' '}
+          {tokenBalance
+            ? moneyFormat(tokenBalance, {
+              symbol: token?.symbol,
+              compression: token?.decimals,
+              showCurrency: false,
+            })
+            : overrideBalance
+              ? overrideBalance.toString()
+              : '-'}
+        </Typography>
+      )}
+
+      <OutlinedInput
+        className={cls(classes.inputRow, {
+          [classes.inputRowNoLabel]: !label,
+          [inputClassName!]: !!inputClassName,
+        })}
+        placeholder={'0'}
+        value={amount.toString()}
+        onChange={onChange}
+        onFocus={clearPlaceholder}
+        onBlur={onEditorBlur}
+        disabled={disabled}
+        type="number"
+        inputProps={{ min: '0', className: classes.input }}
+        endAdornment={
+          <InputAdornment className={classes.endAdornment} position="end">
+            {fixedToken ? (
+              legacyZil ? (
+                <Box display="flex">
+                  {showMaxButton && (
+                    <Button
+                      className={classes.maxButton}
+                      disabled={disabled}
+                      onClick={onSelectMax}
+                      disableRipple
+                    >
+                      <Typography>MAX</Typography>
+                    </Button>
+                  )}
+                  <Box py={'4px'} px={'16px'} className={classes.currencyButton}>
+                    <Box display="flex" alignItems="center">
+                      <CurrencyLogo
+                        legacy="true"
+                        currency={token?.symbol}
+                        address={token?.address}
+                        blockchain={token?.blockchain}
+                        className={classes.currencyLogo}
+                      />
+                      <Typography variant="button" className={classes.currencyText}>
+                        ZIL
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              ) : (
+                <Box py={'4px'} px={'16px'} className={classes.currencyButton}>
+                  <Box display="flex" alignItems="center">
+                    <CurrencyLogo
+                      currency={token?.symbol}
+                      address={token?.address}
+                      blockchain={token?.blockchain}
+                      className={classes.currencyLogo}
+                    />
+                    <Typography variant="button" className={classes.currencyText}>
+                      {token?.symbol}
+                    </Typography>
+                  </Box>
+                </Box>
+              )
+            ) : (
+              <Box display="flex">
+                {showMaxButton && (
+                  <Button
+                    className={classes.maxButton}
+                    disabled={disabled}
+                    onClick={onSelectMax}
+                    disableRipple
+                  >
+                    <Typography>MAX</Typography>
+                  </Button>
+                )}
+                <Button
+                  disableRipple
+                  className={classes.currencyButton}
+                  onClick={() => setShowCurrencyDialog(true)}
+                >
+                  <Box display="flex" alignItems="center">
+                    {token && (
+                      <CurrencyLogo
+                        currency={token.registered && token.symbol}
+                        blockchain={token?.blockchain}
+                        address={token.address}
+                        className={classes.currencyLogo}
+                      />
+                    )}
+                    <Typography variant="button" className={classes.currencyText}>
+                      {formatSymbol(token) ?? (
+                        <Box component="span" ml={1}>
+                          Select Token
+                        </Box>
+                      )}
+                    </Typography>
+                  </Box>
+                  <ExpandMoreIcon className={classes.expandIcon} />
+                </Button>
+              </Box>
+            )}
+          </InputAdornment>
+        }
+      />
+      {children}
+      <CurrencyDialog
+        {...dialogOpts}
+        token={token}
+        tokenList={tokenList}
+        open={showCurrencyDialog || showDialogOverride || false}
+        onSelectCurrency={onCurrencySelect}
+        onClose={onCloseDialog}
+      />
+    </form>
+  );
+};
 
 const useStyles = makeStyles((theme: AppTheme) => ({
   root: {},
@@ -157,258 +381,5 @@ const useStyles = makeStyles((theme: AppTheme) => ({
     flex: 1,
   },
 }));
-
-export interface CurrencyInputProps extends React.HTMLAttributes<HTMLFormElement> {
-  label?: string;
-  inputClassName?: string;
-  token: TokenInfo | null;
-  amount: string;
-  tokenList?: CurrencyListType;
-  showCurrencyDialog?: boolean;
-  fixedToken?: boolean;
-  disabled?: boolean;
-  hideBalance?: boolean;
-  showMaxButton?: boolean;
-  showPoolBalance?: boolean;
-  showContribution?: boolean;
-  highestBid?: BigNumber;
-  dialogOpts?: Partial<CurrencyDialogProps>;
-  legacyZil?: boolean;
-  overrideBalance?: BigNumber;
-  balanceLabel?: string;
-
-  onCurrencyChange?: (token: TokenInfo) => void;
-  onAmountChange?: (value: string) => void;
-  onEditorBlur?: () => void;
-  onCloseDialog?: () => void;
-  onSelectMax?: () => void;
-  onEnterKeyPress?: () => void;
-}
-
-const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) => {
-  const {
-    children,
-    inputClassName,
-    className,
-    label,
-    fixedToken,
-    amount,
-    disabled,
-    showCurrencyDialog: showDialogOverride,
-    onCloseDialog: onCloseDialogListener,
-    showContribution,
-    hideBalance,
-    showPoolBalance,
-    dialogOpts = {},
-    onAmountChange,
-    onCurrencyChange,
-    token,
-    onEditorBlur,
-    onSelectMax,
-    showMaxButton,
-    onEnterKeyPress,
-    tokenList = 'zil',
-    legacyZil = false,
-    overrideBalance,
-    balanceLabel = 'Balance',
-  } = props;
-  const classes = useStyles();
-  const moneyFormat = useMoneyFormatter({ maxFractionDigits: 5 });
-  const [tokenBalance, setTokenBalance] = useState<BigNumber | null>(null);
-  const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
-  const walletState = useSelector(getWallet);
-  const poolToken = useSelector<RootState, TokenInfo | null>(state => state.pool.token);
-  const formatMoney = useMoneyFormatter({
-    showCurrency: true,
-    maxFractionDigits: 6,
-  });
-
-  // const userPoolTokenPercent = poolToken?.pool?.contributionPercentage.shiftedBy(-2);
-  // const inPoolAmount = poolToken?.pool?.tokenReserve.times(userPoolTokenPercent || 0);
-
-  const formatOpts: MoneyFormatterOptions = {
-    compression: poolToken?.decimals,
-  };
-
-  useEffect(() => {
-    if (!walletState.wallet || !token) return setTokenBalance(null);
-
-    if (!showContribution) {
-      const tokenBalance = token!.balance;
-      if (!tokenBalance) return setTokenBalance(null);
-
-      setTokenBalance(new BigNumber(tokenBalance!.toString()));
-    } else {
-      if (!token.pool) return setTokenBalance(null);
-      setTokenBalance(token.pool![0].userContribution); // temporary hack
-    }
-  }, [walletState.wallet, token, showContribution]);
-
-  const onCurrencySelect = (token: TokenInfo) => {
-    if (typeof onCurrencyChange === 'function') onCurrencyChange(token);
-    setShowCurrencyDialog(false);
-  };
-
-  const onChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (typeof onAmountChange === 'function') onAmountChange(event.target.value);
-  };
-
-  const onCloseDialog = () => {
-    setShowCurrencyDialog(false);
-    if (typeof onCloseDialogListener === 'function') onCloseDialogListener();
-  };
-
-  const clearPlaceholder = () => {
-    if (amount === '0' && typeof onAmountChange === 'function') onAmountChange('');
-  };
-
-  const onSubmitHandler = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (onEnterKeyPress) {
-      onEnterKeyPress();
-    }
-  };
-
-  return (
-    <form
-      className={cls(classes.form, className)}
-      noValidate
-      autoComplete="off"
-      onSubmit={onSubmitHandler}
-    >
-      {label && <InputLabel className={cls(classes.label)}>{label}</InputLabel>}
-
-      {!hideBalance && (
-        <Typography className={cls(classes.balance)} variant="body1">
-          {balanceLabel}:{' '}
-          {tokenBalance
-            ? moneyFormat(tokenBalance, {
-              symbol: token?.symbol,
-              compression: token?.decimals,
-              showCurrency: false,
-            })
-            : overrideBalance
-              ? overrideBalance.toString()
-              : '-'}
-        </Typography>
-      )}
-
-      {/* {showPoolBalance && (
-        <Typography className={classes.balance} variant="body2">
-          Balance in Pool: {!!poolToken && formatMoney(inPoolAmount || 0, formatOpts)}
-        </Typography>
-      )} */}
-
-      <OutlinedInput
-        className={cls(classes.inputRow, {
-          [classes.inputRowNoLabel]: !label,
-          [inputClassName!]: !!inputClassName,
-        })}
-        placeholder={'0'}
-        value={amount.toString()}
-        onChange={onChange}
-        onFocus={clearPlaceholder}
-        onBlur={onEditorBlur}
-        disabled={disabled}
-        type="number"
-        inputProps={{ min: '0', className: classes.input }}
-        endAdornment={
-          <InputAdornment className={classes.endAdornment} position="end">
-            {fixedToken ? (
-              legacyZil ? (
-                <Box display="flex">
-                  {showMaxButton && (
-                    <Button
-                      className={classes.maxButton}
-                      disabled={disabled}
-                      onClick={onSelectMax}
-                      disableRipple
-                    >
-                      <Typography>MAX</Typography>
-                    </Button>
-                  )}
-                  <Box py={'4px'} px={'16px'} className={classes.currencyButton}>
-                    <Box display="flex" alignItems="center">
-                      <CurrencyLogo
-                        legacy="true"
-                        currency={token?.symbol}
-                        address={token?.address}
-                        blockchain={token?.blockchain}
-                        className={classes.currencyLogo}
-                      />
-                      <Typography variant="button" className={classes.currencyText}>
-                        ZIL
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              ) : (
-                <Box py={'4px'} px={'16px'} className={classes.currencyButton}>
-                  <Box display="flex" alignItems="center">
-                    <CurrencyLogo
-                      currency={token?.symbol}
-                      address={token?.address}
-                      blockchain={token?.blockchain}
-                      className={classes.currencyLogo}
-                    />
-                    <Typography variant="button" className={classes.currencyText}>
-                      {token?.symbol}
-                    </Typography>
-                  </Box>
-                </Box>
-              )
-            ) : (
-              <Box display="flex">
-                {showMaxButton && (
-                  <Button
-                    className={classes.maxButton}
-                    disabled={disabled}
-                    onClick={onSelectMax}
-                    disableRipple
-                  >
-                    <Typography>MAX</Typography>
-                  </Button>
-                )}
-                <Button
-                  disableRipple
-                  className={classes.currencyButton}
-                  onClick={() => setShowCurrencyDialog(true)}
-                >
-                  <Box display="flex" alignItems="center">
-                    {token && (
-                      <CurrencyLogo
-                        currency={token.registered && token.symbol}
-                        blockchain={token?.blockchain}
-                        address={token.address}
-                        className={classes.currencyLogo}
-                      />
-                    )}
-                    <Typography variant="button" className={classes.currencyText}>
-                      {formatSymbol(token) ?? (
-                        <Box component="span" ml={1}>
-                          Select Token
-                        </Box>
-                      )}
-                    </Typography>
-                  </Box>
-                  <ExpandMoreIcon className={classes.expandIcon} />
-                </Button>
-              </Box>
-            )}
-          </InputAdornment>
-        }
-      />
-      {children}
-      <CurrencyDialog
-        {...dialogOpts}
-        token={token}
-        tokenList={tokenList}
-        open={showCurrencyDialog || showDialogOverride || false}
-        onSelectCurrency={onCurrencySelect}
-        onClose={onCloseDialog}
-      />
-    </form>
-  );
-};
 
 export default CurrencyInput;

@@ -18,6 +18,7 @@
     "resolveJsonModule": true,
     "preserveSymlinks": true,
     "isolatedModules": true,
+    "noImplicitAny": false,
     "noEmit": true,
     "jsx": "react",
     "noFallthroughCasesInSwitch": true

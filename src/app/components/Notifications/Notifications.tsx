@@ -1,11 +1,10 @@
-import React from "react";
 import { Box } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
-import cls from "classnames";
-import { useSelector } from "react-redux";
-import { useRouteMatch } from "react-router";
+import { TokenInfo } from "app/store/types";
 import { AppTheme } from "app/theme/types";
-import { PoolFormState, RootState, SwapFormState } from "app/store/types";
+import cls from "classnames";
+import React from "react";
+import { useRouteMatch } from "react-router";
 import UserPoolMessage from "../UserPoolMessage";
 
 const useStyles = makeStyles((theme: AppTheme) => ({
@@ -29,22 +28,24 @@ const Notifications: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: an
   const { className, ...rest } = props;
   const classes = useStyles();
 
-  const isSwap = useRouteMatch({ path: "/swap" })
+  // const isSwap = useRouteMatch({ path: "/swap" })
   const isPool = useRouteMatch({ path: "/pool" })
 
-  const poolState = useSelector<RootState, PoolFormState>(state => state.pool);
-  const swapState = useSelector<RootState, SwapFormState>(state => state.swap);
+  // const poolState = useSelector<RootState, PoolFormState>(state => state.pool);
+  // const tokenState = useSelector<RootState, TokenState>(state => state.token);
+  // const swapState = useSelector<RootState, SwapFormState>(state => state.swap);
 
-  const poolToken = poolState.token;
-  const { inToken, outToken } = swapState;
+  // const pool = poolState.pool;
+  // const poolToken = tokenState.tokens[pool?.poolAddress ?? ""];
+  // const { inToken, outToken } = swapState;
 
-  let userToken = null;
-  if (isPool && poolToken && !poolToken.whitelisted)
-    userToken = poolToken;
-  else if (isSwap && inToken && !inToken.isZil && !inToken.whitelisted)
-    userToken = inToken;
-  else if (isSwap && outToken && !outToken.isZil && !outToken.whitelisted)
-    userToken = outToken;
+  let userToken: TokenInfo | null = null;
+  // if (isPool && poolToken && !poolToken?.whitelisted)
+  //   userToken = poolToken;
+  // else if (isSwap && inToken && !inToken.isZil && !inToken.whitelisted)
+  //   userToken = inToken;
+  // else if (isSwap && outToken && !outToken.isZil && !outToken.whitelisted)
+  //   userToken = outToken;
 
   if (!userToken) return null;
 

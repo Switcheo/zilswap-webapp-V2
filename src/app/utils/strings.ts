@@ -25,7 +25,7 @@ export const parseBN = (input?: string | BigNumber | number | null, defaultValue
   return result;
 };
 
-export const bnOrZero = (input?: string | BigNumber | number | null, defaultValue: BigNumber = BIG_ZERO) => {
+export const bnOrZero = (input?: string | BigNumber | number | null, defaultValue: BigNumber = BIG_ZERO): BigNumber => {
   return parseBN(input, defaultValue)!;
 };
 

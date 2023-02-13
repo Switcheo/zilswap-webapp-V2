@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
 import { LayoutActionTypes } from "./actions";
-import { LayoutState } from "./types";
+import { LayoutState, LoadingTask } from "./types";
 
 const initial_state: LayoutState = {
   showWalletDialog: false,
@@ -23,7 +23,7 @@ const initial_state: LayoutState = {
 };
 
 const reducer = (state: LayoutState = initial_state, action: any): LayoutState => {
-  let loadingTask = null, taskName;
+  let loadingTask: LoadingTask | null = null, taskName;
   switch (action.type) {
     case LayoutActionTypes.TOGGLE_SHOW_WALLET:
       return {

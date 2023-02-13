@@ -1,17 +1,15 @@
-import React from "react";
-import { Box, Button, IconButton, } from "@material-ui/core";
+import { Box, IconButton } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
-import cls from "classnames";
-import { useDispatch, useSelector } from "react-redux";
 import BrightnessLowIcon from '@material-ui/icons/BrightnessLowRounded';
 import { Notifications, ShowAdvanced } from "app/components";
 import MainCard from "app/layouts/MainCard";
 import { actions } from "app/store";
-import { LayoutState, OpenCloseState, PoolFormState, RootState } from "app/store/types";
+import { LayoutState, RootState } from "app/store/types";
 import { AppTheme } from "app/theme/types";
-import { CreatePoolDialog, NewPoolMessage, PoolDeposit, PoolManage, PoolToggleButton, PoolWithdraw } from "./components";
-import AddLiquidityEarnMessage from "./components/AddLiquidityEarnMessage";
-import { ReactComponent as PlusSVG } from "./plus_icon.svg";
+import cls from "classnames";
+import React from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { PoolDeposit, PoolManage, PoolToggleButton, PoolWithdraw } from "./components";
 
 const useStyles = makeStyles((theme: AppTheme) => ({
   root: {
@@ -54,15 +52,9 @@ const PoolView: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) =>
   const { children, className, ...rest } = props;
   const classes = useStyles();
   const dispatch = useDispatch();
-  const poolFormState = useSelector<RootState, PoolFormState>(state => state.pool);
   const layoutState = useSelector<RootState, LayoutState>(state => state.layout);
 
-  const { token: poolToken } = poolFormState;
-  const { showPoolType: poolType, showCreatePool } = layoutState;
-
-  const onShowCreatePool = (override: OpenCloseState) => {
-    dispatch(actions.Layout.toggleShowCreatePool(override));
-  };
+  const { showPoolType: poolType } = layoutState;
 
   const toggleAdvancedSetting = () => {
     dispatch(actions.Layout.showAdvancedSetting(!layoutState.showAdvancedSetting));
@@ -71,27 +63,22 @@ const PoolView: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) =>
   return (
     <MainCard {...rest} className={cls(classes.root, className)}>
       <Notifications />
-      {!poolToken?.pool && (
-        <NewPoolMessage token={poolToken || undefined} />
-      )}
-      <AddLiquidityEarnMessage />
+      {/* <AddLiquidityEarnMessage /> */}
 
       {!layoutState.showAdvancedSetting && (
-        <Box display="flex" flexDirection="column">
+        <Box display="flex" flexDirection="column" mt={4}>
           {poolType !== "remove" && (
-            <Box display="flex" justifyContent="space-between" mb="28px" className={classes.container}>
-              <PoolToggleButton />
-              <Button className={classes.createButton} startIcon={<PlusSVG className={classes.plusIcon}/>} onClick={() => onShowCreatePool("open")}>
-                Create Pool
-            </Button>
-            </Box>
-          )}
-          {poolType === "add" && (
-            <Box display="flex" justifyContent="flex-end" className={classes.advancedSettingContainer}>
-              <IconButton onClick={() => toggleAdvancedSetting()} className={classes.iconButton}>
-                <BrightnessLowIcon />
-              </IconButton>
-            </Box>
+            <>
+              <Box marginLeft={4}>
+                <PoolToggleButton />
+              </Box>
+              <Box display="flex" justifyContent="flex-end" className={classes.advancedSettingContainer}>
+                <Box flex={1} />
+                <IconButton onClick={() => toggleAdvancedSetting()} className={classes.iconButton}>
+                  <BrightnessLowIcon />
+                </IconButton>
+              </Box>
+            </>
           )}
           {poolType === "add" && (<PoolDeposit />)}
           {poolType === "manage" && (<PoolManage />)}
@@ -100,7 +87,6 @@ const PoolView: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) =>
         </Box>
       )}
       <ShowAdvanced showAdvanced={layoutState.showAdvancedSetting} />
-      <CreatePoolDialog open={showCreatePool} onCloseDialog={() => onShowCreatePool("close")} />
     </MainCard>
   );
 };

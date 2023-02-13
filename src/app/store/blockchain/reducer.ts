@@ -1,11 +1,11 @@
+import { LocalStorageKeys } from "app/utils/constants";
 import { Network } from "zilswap-sdk/lib/constants";
-import { DefaultFallbackNetwork, LocalStorageKeys } from "app/utils/constants";
-import { BlockchainState } from "./types";
 import { BlockchainActionTypes } from "./actions";
+import { BlockchainState } from "./types";
 
-const storedNetworkString = localStorage.getItem(LocalStorageKeys.Network);
-const networks: { [index: string]: Network | undefined } = Network;
-const storedNetwork = networks[storedNetworkString || ""] || DefaultFallbackNetwork;
+// const storedNetworkString = localStorage.getItem(LocalStorageKeys.Network);
+// const networks: { [index: string]: Network | undefined } = Network;
+const storedNetwork = Network.TestNet // networks[storedNetworkString || ""] || DefaultFallbackNetwork;
 
 const initial_state: BlockchainState = {
   ready: false,
@@ -18,7 +18,6 @@ const initial_state: BlockchainState = {
       pools: {},
       total_contributions: {},
     },
-    zilo: {},
   }
 };
 
@@ -33,19 +32,6 @@ const reducer = (state: BlockchainState = initial_state, action: any) => {
         ...state,
         network,
     };
-    case BlockchainActionTypes.SET_ZILO_STATE: {
-      const { address, state: zstate } = action;
-      return {
-        ...state,
-        contracts: {
-          ...state.contracts,
-          zilo: {
-            ...state.contracts.zilo,
-            [address]: zstate,
-          }
-        }
-      }
-    }
     default:
       return state;
   };

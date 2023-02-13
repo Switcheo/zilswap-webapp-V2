@@ -1,18 +1,16 @@
-import React from "react";
 import { Box, BoxProps, ButtonBase, Typography } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
-import { toBech32Address } from "@zilliqa-js/crypto";
-import BigNumber from "bignumber.js";
-import cls from "classnames";
-import { useSelector } from "react-redux";
-import { Blockchain } from "carbon-js-sdk";
 import ContrastBox from "app/components/ContrastBox";
 import CurrencyLogo from "app/components/CurrencyLogo";
-import { BridgeState, RootState, TokenInfo, TokenState, WalletState } from "app/store/types";
+import { RootState, TokenInfo, TokenState, WalletState } from "app/store/types";
 import { AppTheme } from "app/theme/types";
 import { useMoneyFormatter } from "app/utils";
 import { BIG_ZERO } from "app/utils/constants";
 import { formatSymbol, formatTokenName } from "app/utils/currencies";
+import BigNumber from "bignumber.js";
+import cls from "classnames";
+import React from "react";
+import { useSelector } from "react-redux";
 
 type CurrencyListProps = BoxProps & {
   tokens: TokenInfo[];
@@ -66,7 +64,6 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
   const { children, className, onSelectCurrency, onToggleUserToken, userTokens, emptyStateLabel, showContribution, search, tokens, ...rest } = props;
   const classes = useStyles();
   const tokenState = useSelector<RootState, TokenState>(state => state.token);
-  const bridgeState = useSelector<RootState, BridgeState>(state => state.bridge);
   const walletState = useSelector<RootState, WalletState>(state => state.wallet);
   const moneyFormat = useMoneyFormatter({ maxFractionDigits: 12 });
 
@@ -98,15 +95,6 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
   }
 
   const getLogoAddress = (token: TokenInfo) => {
-    if (token.blockchain === Blockchain.Ethereum) {
-      const tokenHash = token.address.replace(/^0x/i, "");
-      const bridgeToken = bridgeState.tokens.eth.find((bridgeToken) => bridgeToken.tokenAddress === tokenHash)
-
-      if (bridgeToken) {
-        return toBech32Address(bridgeToken.toTokenAddress);
-      }
-    }
-
     return token.address;
   }
 

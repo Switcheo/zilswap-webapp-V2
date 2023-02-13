@@ -7,171 +7,18 @@ import MainCard from "app/layouts/MainCard";
 import { actions } from "app/store";
 import { ExactOfOptions, LayoutState, RootState, SwapFormState, TokenInfo, TokenState, WalletObservedTx, WalletState } from "app/store/types";
 import { AppTheme } from "app/theme/types";
-import { bnOrZero, useAsyncTask, useBlacklistAddress, useNetwork, useSearchParam, useToaster } from "app/utils";
+import { bnOrZero, useAsyncTask, useBlacklistAddress, useNetwork, useToaster } from "app/utils";
 import { BIG_ONE, BIG_ZERO, ZIL_ADDRESS } from "app/utils/constants";
 import BigNumber from "bignumber.js";
 import cls from "classnames";
 import { toBasisPoints, ZilswapConnector } from "core/zilswap";
 import { ZWAP_TOKEN_CONTRACT } from "core/zilswap/constants";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useHistory, useLocation } from "react-router";
 import { ZILSWAPV2_CONTRACTS } from "zilswap-sdk/lib/constants";
 import SwapDetail from "./components/SwapDetail";
 import { ReactComponent as SwapSVG } from "./swap_logo.svg";
-
-const useStyles = makeStyles((theme: AppTheme) => ({
-  root: {
-  },
-  container: {
-    padding: theme.spacing(2, 4, 2),
-    [theme.breakpoints.down("xs")]: {
-      padding: theme.spacing(2, 2, 2),
-    },
-  },
-  swapButton: {
-    padding: 0,
-    marginTop: -49,
-    marginBottom: -15,
-    transform: "rotate(0)",
-    transition: "transform .5s ease-in-out",
-    [theme.breakpoints.down("sm")]: {
-      marginTop: -55
-    },
-    zIndex: 1
-  },
-  rotateSwapButton: {
-    transform: "rotate(180deg)",
-  },
-  switchIcon: {
-    height: 16,
-    width: 16,
-    marginLeft: 8,
-    backgroundColor: theme.palette.type === "dark" ? "#2B4648" : "#E4F1F2",
-    borderRadius: 8,
-    cursor: "pointer",
-    transform: "rotate(0)",
-    transition: "transform .5s ease-in-out",
-  },
-  activeSwitchIcon: {
-    transform: "rotate(180deg)",
-  },
-  inputRow: {
-    paddingLeft: 0
-  },
-  proportionSelect: {
-    marginTop: 3,
-    marginBottom: 4,
-  },
-  currencyButton: {
-    borderRadius: 0,
-    color: theme.palette.text!.primary,
-    fontWeight: 600,
-    width: 150,
-    display: "flex",
-    justifyContent: "space-between"
-  },
-  label: {
-    fontSize: "12px",
-    lineHeight: "14px",
-    fontWeight: "bold",
-    letterSpacing: 0,
-    marginBottom: theme.spacing(1),
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-  },
-  keyValueLabel: {
-    marginTop: theme.spacing(1),
-  },
-  exchangeRateLabel: {
-    flex: 1,
-    marginBottom: theme.spacing(2),
-  },
-  actionButton: {
-    marginTop: theme.spacing(4),
-    marginBottom: theme.spacing(4),
-    height: 46
-  },
-  advanceDetails: {
-    marginBottom: theme.spacing(2),
-    justifyContent: "center",
-    alignItems: "center",
-    display: "flex",
-    color: theme.palette.text!.secondary,
-    cursor: "pointer"
-  },
-  primaryColor: {
-    color: theme.palette.primary.main
-  },
-  accordionButton: {
-    verticalAlign: "middle",
-    paddingBottom: 3,
-    cursor: "pointer",
-    color: theme.palette.primary.main,
-  },
-  addAddressButton: {
-    borderRadius: 0,
-    padding: 0,
-    fontSize: "12px",
-    "& .MuiButton-label": {
-      justifyContent: "flex-start",
-    },
-  },
-  addressLabel: {
-    display: "flex",
-    alignItems: "center",
-  },
-  addressInput: {
-    marginBottom: theme.spacing(2),
-    "& input": {
-      padding: "17.5px 14px",
-      fontSize: "14px",
-    },
-  },
-  addressError: {
-    justifySelf: "flex-end",
-    marginLeft: "auto",
-  },
-  warningText: {
-    color: theme.palette.colors.zilliqa.warning,
-    "& svg": {
-      verticalAlign: "middle",
-      fontSize: "inherit",
-    },
-    paddingBottom: theme.spacing(0.5),
-  },
-  errorText: {
-    color: theme.palette.colors.zilliqa.danger,
-    "& svg": {
-      verticalAlign: "middle",
-      fontSize: "inherit",
-    }
-  },
-  errorMessage: {
-    marginTop: theme.spacing(1),
-  },
-  swapIcon: {
-    "& path": {
-      fill: theme.palette.icon
-    }
-  },
-  iconButton: {
-    color: theme.palette.type === "dark" ? "rgba(222, 255, 255, 0.5)" : "#003340",
-    backgroundColor: theme.palette.background.contrast,
-    borderRadius: 12,
-    padding: 5,
-    marginLeft: 5,
-  },
-  swapIconBox: {
-    zIndex: 1,
-    justifyContent: "center",
-    [theme.breakpoints.down("sm")]: {
-      justifyContent: "flex-start"
-    },
-  }
-}));
 
 const initialFormState = {
   inAmount: "0",
@@ -195,7 +42,6 @@ interface InitTokenProps {
 const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
   const { children, className, ...rest } = props;
   const classes = useStyles();
-  const enableChangeRecipient = useSearchParam("enableChangeRecipient") === "true";
   const [buttonRotate, setButtonRotate] = useState(false);
   const [formState, setFormState] = useState<typeof initialFormState>(initialFormState);
   const network = useNetwork();
@@ -207,13 +53,28 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
   const walletState = useSelector<RootState, WalletState>(store => store.wallet);
   const layoutState = useSelector<RootState, LayoutState>(store => store.layout);
   const [runSwap, loading, error, clearSwapError] = useAsyncTask("swap");
-  const [runWrap, loadingWrap, errorWrap, clearWrapError] = useAsyncTask("wrap");
   const [isBlacklisted] = useBlacklistAddress();
   const [runApproveTx, loadingApproveTx, errorApproveTx, clearApproveError] = useAsyncTask("approveTx");
-  const [errorRecipientAddress, setErrorRecipientAddress] = useState<string | undefined>();
   const queryParams = new URLSearchParams(location.search);
   const [recipientAddrBlacklisted, setRecipientAddrBlacklisted] = useState(false);
   const toaster = useToaster();
+
+  const { path, isInsufficientReserves } = useMemo(() => {
+    const { inToken, outToken, inAmount } = swapFormState;
+    if (!inToken || !outToken) return {};
+    const inAmountUnitless = inAmount.shiftedBy(inToken.decimals);
+    const { swapPath, expectedAmount } = ZilswapConnector.findSwapPath(inToken.hash, outToken.hash, inAmountUnitless);
+
+    const [pool, reversed] = swapPath?.slice(-1)?.[0] ?? [];
+    const outReserves = reversed ? pool?.token0Reserve : pool?.token1Reserve;
+
+    let isInsufficientReserves = false;
+    if (outReserves?.lt(expectedAmount))
+      isInsufficientReserves = true;
+
+    return { path: swapPath, expectedAmount, isInsufficientReserves };
+  }, [swapFormState]);
+
 
   // Use default form
   useEffect(() => {
@@ -316,11 +177,11 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
   };
 
   const calculateAmounts = async (props: CalculateAmountProps = {}) => {
-    let _inAmount: BigNumber = props.inAmount || swapFormState.inAmount;
-    let _outAmount: BigNumber = props.outAmount || swapFormState.outAmount;
-    const _inToken: TokenInfo | undefined = props.inToken || swapFormState.inToken;
-    const _outToken: TokenInfo | undefined = props.outToken || swapFormState.outToken;
-    const _exactOf: ExactOfOptions = props.exactOf || swapFormState.exactOf;
+    let _inAmount: BigNumber = props.inAmount ?? swapFormState.inAmount;
+    let _outAmount: BigNumber = props.outAmount ?? swapFormState.outAmount;
+    const _inToken: TokenInfo | undefined = props.inToken ?? swapFormState.inToken;
+    const _outToken: TokenInfo | undefined = props.outToken ?? swapFormState.outToken;
+    const _exactOf: ExactOfOptions = props.exactOf ?? swapFormState.exactOf;
 
     if (!_inToken || !_outToken) return {
       inAmount: _inAmount,
@@ -340,7 +201,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     let isInsufficientReserves = false;
 
     if (srcAmount.abs().gt(0)) {
-      const expectedAmount = new BigNumber(await ZilswapConnector.getExchangeRate({
+      const expectedAmount = new BigNumber(ZilswapConnector.getExchangeRate({
         amount: srcAmount.decimalPlaces(0),
         exactOf: _exactOf,
         tokenInID: _inToken!.address,
@@ -502,7 +363,8 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     const { outToken, inToken, inAmount, outAmount, exactOf, slippage, expiry, recipientAddress } = swapFormState;
 
     // Checks if the input
-    if (!inToken || !outToken) return;
+    if (isInsufficientReserves) return;
+    if (!inToken || !outToken || !path) return;
     if (inAmount.isZero() || outAmount.isZero()) return;
     if (loading) return;
 
@@ -523,14 +385,14 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
       ZilswapConnector.setDeadlineBlocks(expiry);
 
       const observedTx = await ZilswapConnector.swap({
+        path: path.map(([pool]) => pool),
         tokenInID: inToken.address,
-        tokenOutID: outToken.address,
         amount, exactOf,
         maxAdditionalSlippage: toBasisPoints(slippage).toNumber(),
-        ...exactIn && {
+        ...exactOf === "in" && {
           amountOutMin: outAmount.shiftedBy(outToken.decimals)
         },
-        ...!exactIn && {
+        ...exactOf === "out" && {
           amountInMax: inAmount.shiftedBy(inToken.decimals)
         },
         ...formState.showRecipientAddress && {
@@ -555,7 +417,6 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     if (loading) return;
 
     clearSwapError();
-    clearWrapError();
 
     runApproveTx(async () => {
       const tokenAddress = swapFormState.inToken!.address;
@@ -563,6 +424,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
       const observedTx = await ZilswapConnector.approveTokenTransfer({
         tokenAmount: tokenAmount.shiftedBy(swapFormState.inToken!.decimals),
         tokenID: tokenAddress,
+        spenderAddress: "",
       });
 
       if (!observedTx)
@@ -623,7 +485,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             token={inToken || null}
             amount={formState.inAmount}
             disabled={!inToken}
-            dialogOpts={{ hideNoPool: true, wrapZil: outToken?.isWzil }}
+            dialogOpts={{ noPool: true, wrapZil: outToken?.isWzil && inToken?.isZil }}
             onEditorBlur={onDoneEditing}
             onAmountChange={onInAmountChange}
             onCurrencyChange={onInCurrencyChange} />
@@ -643,29 +505,31 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             token={outToken || null}
             amount={formState.outAmount}
             disabled={!outToken}
-            dialogOpts={{ hideNoPool: true, wrapZil: inToken?.isWzil }}
+            dialogOpts={{ noPool: true, wrapZil: inToken?.isWzil }}
             onEditorBlur={onDoneEditing}
             onAmountChange={onOutAmountChange}
             onCurrencyChange={onOutCurrencyChange} />
 
-          <Typography className={classes.errorMessage} color="error">{error?.message || errorApproveTx?.message || errorWrap?.message}</Typography>
+          <Typography className={classes.errorMessage} color="error">{error?.message || errorApproveTx?.message}</Typography>
           {swapFormState.isInsufficientReserves && (
             <Typography color="error">Pool reserve is too small to fulfill desired output.</Typography>
           )}
 
-          {<FancyButton walletRequired
-            loading={loading}
-            className={classes.actionButton}
-            showTxApprove={showTxApprove}
-            loadingTxApprove={loadingApproveTx}
-            onClickTxApprove={onApproveTx}
-            variant="contained"
-            color="primary"
-            disabled={!inToken || !outToken || recipientAddrBlacklisted}
-            onClick={onSwap}>
-            Swap
-          </FancyButton>
-          }
+          {(
+            <FancyButton walletRequired
+              loading={loading}
+              className={classes.actionButton}
+              showTxApprove={showTxApprove}
+              loadingTxApprove={loadingApproveTx}
+              onClickTxApprove={onApproveTx}
+              variant="contained"
+              color="primary"
+              disabled={!inToken || !outToken || recipientAddrBlacklisted || isInsufficientReserves}
+              onClick={onSwap}>
+              Swap
+            </FancyButton>
+
+          )}
           <SwapDetail token={outToken || undefined} />
         </Box>
       )}
@@ -673,5 +537,160 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     </MainCard >
   );
 };
+
+
+const useStyles = makeStyles((theme: AppTheme) => ({
+  root: {
+  },
+  container: {
+    padding: theme.spacing(4, 4, 2),
+    [theme.breakpoints.down("xs")]: {
+      padding: theme.spacing(2, 2, 2),
+    },
+  },
+  swapButton: {
+    padding: 0,
+    marginTop: -49,
+    marginBottom: -15,
+    transform: "rotate(0)",
+    transition: "transform .5s ease-in-out",
+    [theme.breakpoints.down("sm")]: {
+      marginTop: -55
+    },
+    zIndex: 1
+  },
+  rotateSwapButton: {
+    transform: "rotate(180deg)",
+  },
+  switchIcon: {
+    height: 16,
+    width: 16,
+    marginLeft: 8,
+    backgroundColor: theme.palette.type === "dark" ? "#2B4648" : "#E4F1F2",
+    borderRadius: 8,
+    cursor: "pointer",
+    transform: "rotate(0)",
+    transition: "transform .5s ease-in-out",
+  },
+  activeSwitchIcon: {
+    transform: "rotate(180deg)",
+  },
+  inputRow: {
+    paddingLeft: 0
+  },
+  proportionSelect: {
+    marginTop: 3,
+    marginBottom: 4,
+  },
+  currencyButton: {
+    borderRadius: 0,
+    color: theme.palette.text!.primary,
+    fontWeight: 600,
+    width: 150,
+    display: "flex",
+    justifyContent: "space-between"
+  },
+  label: {
+    fontSize: "12px",
+    lineHeight: "14px",
+    fontWeight: "bold",
+    letterSpacing: 0,
+    marginBottom: theme.spacing(1),
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  keyValueLabel: {
+    marginTop: theme.spacing(1),
+  },
+  exchangeRateLabel: {
+    flex: 1,
+    marginBottom: theme.spacing(2),
+  },
+  actionButton: {
+    marginTop: theme.spacing(4),
+    marginBottom: theme.spacing(4),
+    height: 46
+  },
+  advanceDetails: {
+    marginBottom: theme.spacing(2),
+    justifyContent: "center",
+    alignItems: "center",
+    display: "flex",
+    color: theme.palette.text!.secondary,
+    cursor: "pointer"
+  },
+  primaryColor: {
+    color: theme.palette.primary.main
+  },
+  accordionButton: {
+    verticalAlign: "middle",
+    paddingBottom: 3,
+    cursor: "pointer",
+    color: theme.palette.primary.main,
+  },
+  addAddressButton: {
+    borderRadius: 0,
+    padding: 0,
+    fontSize: "12px",
+    "& .MuiButton-label": {
+      justifyContent: "flex-start",
+    },
+  },
+  addressLabel: {
+    display: "flex",
+    alignItems: "center",
+  },
+  addressInput: {
+    marginBottom: theme.spacing(2),
+    "& input": {
+      padding: "17.5px 14px",
+      fontSize: "14px",
+    },
+  },
+  addressError: {
+    justifySelf: "flex-end",
+    marginLeft: "auto",
+  },
+  warningText: {
+    color: theme.palette.colors.zilliqa.warning,
+    "& svg": {
+      verticalAlign: "middle",
+      fontSize: "inherit",
+    },
+    paddingBottom: theme.spacing(0.5),
+  },
+  errorText: {
+    color: theme.palette.colors.zilliqa.danger,
+    "& svg": {
+      verticalAlign: "middle",
+      fontSize: "inherit",
+    }
+  },
+  errorMessage: {
+    marginTop: theme.spacing(1),
+  },
+  swapIcon: {
+    "& path": {
+      fill: theme.palette.icon
+    }
+  },
+  iconButton: {
+    color: theme.palette.type === "dark" ? "rgba(222, 255, 255, 0.5)" : "#003340",
+    backgroundColor: theme.palette.background.contrast,
+    borderRadius: 12,
+    padding: 5,
+    marginLeft: 5,
+  },
+  swapIconBox: {
+    zIndex: 1,
+    justifyContent: "center",
+    [theme.breakpoints.down("sm")]: {
+      justifyContent: "flex-start"
+    },
+  }
+}));
+
 
 export default Swap;

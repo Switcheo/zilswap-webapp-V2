@@ -67,12 +67,12 @@ const fetchZilTokensState = async (network: Network, tokens: SimpleMap<TokenInfo
 
         case BatchRequestType.TokenBalance: {
           const tokenDetails = ZilswapConnector.getToken(token.address);
-          const tokenPool = ZilswapConnector.getTokenPools(token.address);
 
           const tokenInfo: Partial<TokenInfo> = {
             initialized: true,
             symbol: tokenDetails?.symbol ?? token.symbol,
-            pool: tokenPool ?? undefined,
+            pools: token.pools,
+            pool: token.pool,
             balance: result ? bnOrZero(result.balances[address]) : token.balance,
           };
 

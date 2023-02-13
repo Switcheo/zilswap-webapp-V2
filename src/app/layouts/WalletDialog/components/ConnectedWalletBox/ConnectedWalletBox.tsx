@@ -1,26 +1,25 @@
-import React, { useMemo, useState } from 'react';
 import {
   Box,
   IconButton,
   Tooltip,
   Typography,
   useMediaQuery,
-  useTheme,
+  useTheme
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import { toBech32Address } from '@zilliqa-js/zilliqa';
-import cls from 'classnames';
-import { useDispatch, useSelector } from 'react-redux';
-import { ConnectedWallet, WalletConnectType } from 'core/wallet';
 import { FancyButton } from 'app/components';
 import { ReactComponent as CopyIcon } from 'app/components/copy.svg';
 import { ReactComponent as NewLinkIcon } from 'app/components/new-link.svg';
-import RewardsInfoButton from 'app/layouts/RewardsInfoButton';
 import { actions } from 'app/store';
 import { RootState } from 'app/store/types';
+import { AppTheme } from 'app/theme/types';
 import { hexToRGBA, truncate, useNetwork, useTaskSubscriber } from 'app/utils';
 import { LoadingKeys } from 'app/utils/constants';
-import { AppTheme } from 'app/theme/types';
+import cls from 'classnames';
+import { ConnectedWallet, WalletConnectType } from 'core/wallet';
+import React, { useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 
 const useStyles = makeStyles((theme: AppTheme) => ({
   root: {
@@ -209,7 +208,6 @@ const ConnectedWalletBox = (props: any) => {
       </Box>
 
       <Box display="flex" flexDirection="column" className={classes.buttonBox}>
-        {isMediaXS && <RewardsInfoButton buttonMode={true} />}
         <FancyButton
           onClick={() => {
             dispatch(actions.Layout.toggleShowWallet());

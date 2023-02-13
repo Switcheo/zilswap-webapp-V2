@@ -1,64 +1,35 @@
-import BigNumber from "bignumber.js";
-import { TokenActionTypes } from "../token/actions";
-import { TokenUpdateAllProps, TokenUpdateProps } from "../token/types";
-import { PoolActionTypes } from "./actions";
-import { PoolFormState, PoolSelectProps } from "./types";
+import { BIG_ZERO } from "app/utils";
+import { PoolActionTypes, PoolSelectProps } from "./actions";
+import { PoolFormState } from "./types";
 
-const initial_state: PoolFormState = {
-  token: null,
+const initialState: PoolFormState = {
   forNetwork: null,
 
-  addZilAmount: new BigNumber(0),
-  addTokenAmount: new BigNumber(0),
+  pool: null,
 
-  removeZilAmount: new BigNumber(0),
-  removeTokenAmount: new BigNumber(0),
+  ampBps: BIG_ZERO,
+  token0Amount: BIG_ZERO,
+  token1Amount: BIG_ZERO,
 }
 
-const reducer = (state: PoolFormState = initial_state, action: any) => {
+const reducer = (state: PoolFormState = initialState, action: any) => {
   const { payload } = action;
 
   switch (action.type) {
 
     case PoolActionTypes.CLEAR:
-      return { ...initial_state };
+      return { ...initialState };
 
     case PoolActionTypes.SELECT:
       const selectProps: PoolSelectProps = payload;
       return {
         ...state,
-        token: selectProps.token,
+        pool: selectProps.pool,
         forNetwork: selectProps.network || null,
       };
 
     case PoolActionTypes.UPDATE:
       return { ...state, ...payload };
-
-
-    case TokenActionTypes.TOKEN_UPDATE_ALL:
-      const updateAllProps: TokenUpdateAllProps = payload;
-      const token = updateAllProps[state.token?.address || ""]
-      if (!token) return state;
-      return {
-        ...state,
-        token: {
-          ...state.token,
-          ...token,
-        }
-      }
-
-    case TokenActionTypes.TOKEN_UPDATE:
-      const updateProps: TokenUpdateProps = payload;
-      if (updateProps.address !== state.token?.address)
-        return state;
-
-      return {
-        ...state,
-        token: {
-          ...state.token,
-          ...updateProps,
-        },
-      };
 
     default:
       return state;

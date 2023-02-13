@@ -1,15 +1,14 @@
-import React, { useState } from "react";
 import { Box, BoxProps } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
-import cls from "classnames";
-import { useSelector } from "react-redux";
 import SwapHorizontalCircleIcon from '@material-ui/icons/SwapHorizRounded';
-import { ZilswapConnector } from "core/zilswap";
 import { HelpInfo, KeyValueDisplay } from "app/components";
 import { RootState, SwapFormState, TokenInfo } from "app/store/types";
 import { AppTheme } from "app/theme/types";
 import { useMoneyFormatter } from "app/utils";
-import { BIG_ONE, BIG_ZERO } from "app/utils/constants";
+import { BIG_ZERO } from "app/utils/constants";
+import cls from "classnames";
+import React, { useState } from "react";
+import { useSelector } from "react-redux";
 
 
 export interface SwapDetailProps extends BoxProps {
@@ -95,22 +94,23 @@ const SwapDetail: React.FC<SwapDetailProps> = (props: SwapDetailProps) => {
       src = outToken;
     }
 
-    if (exchangeRate.eq(0)) {
-      try {
-        const rateResult = ZilswapConnector.getExchangeRate({
-          amount: BIG_ONE.shiftedBy(src!.decimals),
-          exactOf: reversedRate ? "out" : "in",
-          tokenInID: inToken!.address,
-          tokenOutID: outToken!.address,
-        });
-        if (!rateResult.expectedAmount.isNaN() && !rateResult.expectedAmount.isNegative())
-          exchangeRate = rateResult.expectedAmount.shiftedBy(-dst!.decimals).pow(reversedRate ? -1 : 1);
-      } catch (e) {
-        exchangeRate = BIG_ZERO;
-      }
-    }
+    // if (exchangeRate.eq(0)) {
+    //   try {
+    //     const rateResult = ZilswapConnector.getExchangeRate({
+    //       amount: BIG_ONE.shiftedBy(src!.decimals),
+    //       exactOf: reversedRate ? "out" : "in",
+    //       tokenInID: inToken!.address,
+    //       tokenOutID: outToken!.address,
+    //     });
+    //     if (!rateResult.expectedAmount.isNaN() && !rateResult.expectedAmount.isNegative())
+    //       exchangeRate = rateResult.expectedAmount.shiftedBy(-dst!.decimals).pow(reversedRate ? -1 : 1);
+    //   } catch (e) {
+    //     exchangeRate = BIG_ZERO;
+    //   }
+    // }
     
     const shouldReverseRate = reversedRate && !exchangeRate.isZero();
+    
 
     return (
       <span className={classes.textWrapper}>1 {src?.symbol || ""} = <span className={classes.textColoured}>{moneyFormat(exchangeRate.pow(shouldReverseRate ? -1 : 1))}</span> {dst?.symbol}</span>

@@ -1,11 +1,11 @@
-import { BIG_ZERO, ZIL_ADDRESS } from "app/utils/constants";
+import { BIG_ZERO } from "app/utils/constants";
 import BigNumber from "bignumber.js";
-import { ObservedTx, TokenDetails, ZilSwapV2 } from "zilswap-sdk";
+import { ObservedTx, Pool, TokenDetails, ZilSwapV2 } from "zilswap-sdk";
 import { Network } from "zilswap-sdk/lib/constants";
 
 import { logger } from "core/utilities";
 import { ConnectedWallet } from "core/wallet/ConnectedWallet";
-import { Pool } from "zilswap-sdk/lib";
+import { fromBech32Address } from "./reexport";
 
 export interface ConnectProps {
   wallet: ConnectedWallet;
@@ -30,38 +30,34 @@ export interface ExchangeRateQueryProps extends ConnectorCallProps {
 export interface ApproveTxProps {
   tokenID: string;
   tokenAmount: BigNumber;
-  spenderAddress?: string
+  spenderAddress: string
 };
 
 export interface AddLiquidityProps {
-  tokenAID: string;
-  tokenBID: string;
-  poolID: string;
-  amountADesiredStr: string;
-  amountBDesiredStr: string;
-  amountAMinStr: string;
-  amountBMinStr: string;
-  reserve_ratio_allowance: number
+  pool: Pool;
+  amount0Desired: BigNumber;
+  amount1Desired: BigNumber;
+  amount0Min: BigNumber;
+  amount1Min: BigNumber;
+  vReserveAllowanceBps?: BigNumber
 };
 
 export interface RemoveLiquidityProps {
-  tokenAID: string;
-  tokenBID: string;
-  poolID: string;
-  liquidityStr: string;
-  amountAMinStr: string;
-  amountBMinStr: string;
+  pool: Pool;
+  liquidity: BigNumber;
+  amount0Min: BigNumber;
+  amount1Min: BigNumber;
 };
 
-export interface SwapProps {
-  exactOf: "in" | "out";
+export type SwapProps = {
+  path: Pool[];
   tokenInID: string;
-  tokenOutID: string;
+  exactOf: "in" | "out";
   amount: BigNumber;
-  amountInMax?: BigNumber;
-  amountOutMin?: BigNumber;
   maxAdditionalSlippage?: number;
   recipientAddress?: string;
+  amountOutMin?: BigNumber;
+  amountInMax?: BigNumber;
 };
 
 export interface ContributeZILOProps {
@@ -90,11 +86,11 @@ let zilswapV2: ZilSwapV2 | null = null
  * @param txReceipt `@zilliqa-js` blockchain transaction receipt
  */
 const handleObservedTx = (observedTx: ObservedTx) => {
-  // @ts-ignore
-  if (txReceipt.exceptions?.length) {
-    // @ts-ignore
-    throw txReceipt.exceptions[0];
-  }
+  // // @ts-ignore
+  // if (txReceipt.exceptions?.length) {
+  //   // @ts-ignore
+  //   throw txReceipt.exceptions[0];
+  // }
 };
 
 
@@ -114,6 +110,23 @@ export class ZilswapConnector {
     return zilswapV2.getCurrentBlock()
   }
 
+  static confirmTx = async (txHash: string, maxAttempts = 100, interval = 5000) => {
+    const sdk = ZilswapConnector.getSDK();
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const tx = await sdk.zilliqa.blockchain.getTransaction(txHash);
+        if (tx.isConfirmed()) return tx;
+      } catch (error) {
+        if (error?.message !== "Txn Hash not Present") 
+          throw error;
+      } finally {
+        await new Promise(res => setTimeout(res, interval));
+      }
+    }
+
+    throw new Error("cannot confirm transaction");
+  }
+
   /**
    * Get the pool of the provided token, or `null` if pool does not yet
    * exist on the contract.
@@ -126,12 +139,18 @@ export class ZilswapConnector {
   //   return zilswap.getPool(tokenID);
   // };
 
-  static getTokenPools = (tokenAID: string) => {
+  static getPool = (token0Address: string, token1Address: string, ampBps: BigNumber) => {
     if (!zilswapV2) throw new Error('not initialized');
 
-    const tokenPools = zilswapV2.getTokenPools()
-    return tokenPools![tokenAID]
-  };
+    const pools = zilswapV2.getPools();
+    return Object.values(pools).find(p => p.token1Address === token1Address && p.token0Address === token0Address && p.ampBps.eq(ampBps));
+  }
+
+  static getPoolByAddress = (poolAddress: string): Pool | null => {
+    if (!zilswapV2) throw new Error('not initialized');
+    const pools = zilswapV2.getPools();
+    return pools[fromBech32Address(poolAddress).toLowerCase()] ?? null;
+  }
 
   /**
    *
@@ -195,79 +214,71 @@ export class ZilswapConnector {
       logger(props.amount.toString());
     }
 
-    if (exactIn) {
-      // getOutputForExactInput
-      return (queryFunction(
-        props.tokenInID,
-        props.tokenOutID,
-        props.amount.toString(),
-        '0' // arbitrary number just to obtain the output
-      ))
-    } else {
-      // getInputForExactOutput
-      return (queryFunction(
-        props.tokenInID,
-        props.tokenOutID,
-        props.amount.toString(),
-        '100000000000000000000000000000000000000' // arbitrary number just to obtain the input
-      ))
-    }
+    return queryFunction(
+      props.tokenInID,
+      props.tokenOutID,
+      props.amount.toString(),
+    ) ?? "0";
   }
 
-  static deployAndAddPool = async (token0ID: string, token1ID: string, initAmpBps: string) => {
-    if (!zilswapV2) throw new Error('not initialized');
-    await zilswapV2.deployAndAddPool(token0ID, token1ID, initAmpBps)
+  static getPoolRatio = (pool: Pool, direction: "0to1" | "1to0"): BigNumber => {
+    const reserves = [pool.token0Reserve, pool.token1Reserve];
+    if (direction === "1to0") reserves.reverse();
+    return reserves[0].dividedBy(reserves[1])
   }
+
+  // static deployAndAddPool = async (token0ID: string, token1ID: string, initAmpBps: string) => {
+  //   if (!zilswapV2) throw new Error('not initialized');
+  //   await zilswapV2.deployAndAddPool(token0ID, token1ID, initAmpBps)
+  // }
 
   static deployPool = async (token0ID: string, token1ID: string, initAmpBps: string) => {
     if (!zilswapV2) throw new Error('not initialized');
-    await zilswapV2.deployPool(token0ID, token1ID, initAmpBps)
+    const observedTx = await zilswapV2.deployPool(token0ID, token1ID, initAmpBps);
+    handleObservedTx(observedTx!);
+    return observedTx;
   }
 
   static addPool = async (poolID: string) => {
     if (!zilswapV2) throw new Error('not initialized');
-    await zilswapV2.addPool(poolID)
+    return await zilswapV2.addPool(poolID)
+  }
+
+  static getVReserveBound = (pool: Pool, allowanceBps: BigNumber) => {
+    const { token0vReserve, token1vReserve } = pool;
+    if (token0vReserve.isZero() || token1vReserve.isZero()) {
+      return { vReserveMin: new BigNumber(0).toString(), vReserveMax: new BigNumber(0).toString() }
+    }
+    const q112 = new BigNumber(2).pow(112)
+    const allowanceFactor = allowanceBps.shiftedBy(-4).plus(1);
+    const vReserveMin = token1vReserve.div(token0vReserve).times(q112).div(allowanceFactor).dp(0);
+    const vReserveMax = token1vReserve.div(token0vReserve).times(q112).times(allowanceFactor).dp(0);
+    return { vReserveMin, vReserveMax }
   }
 
   // Applies for both AddLiquidity and AddLiquidityZIL
   static addLiquidity = async (props: AddLiquidityProps) => {
     if (!zilswapV2) throw new Error('not initialized');
-    logger(props.tokenAID)
-    logger(props.tokenBID)
-    logger(props.poolID)
-    logger(props.amountADesiredStr)
-    logger(props.amountBDesiredStr)
-    logger(props.amountAMinStr)
-    logger(props.amountBMinStr)
-    logger(props.reserve_ratio_allowance)
+    logger(props.pool)
+    logger(props.amount0Desired.toString(10))
+    logger(props.amount1Desired.toString(10))
+    logger(props.amount0Min.toString(10))
+    logger(props.amount1Min.toString(10))
+    logger(props.vReserveAllowanceBps?.toString(10))
 
-    let observedTx: ObservedTx;
-    if (props.tokenBID === ZIL_ADDRESS) {
-      // zil-zrc2 pair
-      observedTx = await zilswapV2.addLiquidity(
-        props.tokenAID,
-        props.tokenBID,
-        props.poolID,
-        props.amountADesiredStr,
-        props.amountBDesiredStr,
-        props.amountAMinStr,
-        props.amountBMinStr,
-        props.reserve_ratio_allowance
-      );
-    }
-    else {
-      // zrc2-zrc2 pair
-      observedTx = await zilswapV2.addLiquidityZIL(
-        props.tokenAID,
-        props.poolID,
-        props.amountADesiredStr,
-        props.amountBDesiredStr,
-        props.amountAMinStr,
-        props.amountBMinStr,
-        props.reserve_ratio_allowance
-      );
+    const vBounds = ZilswapConnector.getVReserveBound(props.pool, props.vReserveAllowanceBps ?? new BigNumber(500));
 
-    }
+    const observedTx = await zilswapV2.addLiquidity(
+      props.pool.token0Address,
+      props.pool.token1Address,
+      props.pool.poolAddress,
+      props.amount0Desired.toString(10),
+      props.amount1Desired.toString(10),
+      props.amount0Min.toString(10),
+      props.amount1Min.toString(10),
+      vBounds.vReserveMin.toString(10),
+      vBounds.vReserveMax.toString(10),
+    );
     handleObservedTx(observedTx!);
 
     return observedTx!;
@@ -275,39 +286,29 @@ export class ZilswapConnector {
 
   static removeLiquidity = async (props: RemoveLiquidityProps) => {
     if (!zilswapV2) throw new Error('not initialized');
-    logger(props.tokenAID);
-    logger(props.tokenBID);
-    logger(props.poolID);
-    logger(props.liquidityStr);
-    logger(props.amountAMinStr);
-    logger(props.amountBMinStr);
+    logger(props.pool);
+    logger(props.liquidity.toString(10));
+    logger(props.amount0Min.toString(10));
+    logger(props.amount1Min.toString(10));
 
-    let observedTx: ObservedTx;
-    if (props.tokenBID === ZIL_ADDRESS) {
-      // zil-zrc2 pair
-      observedTx = await zilswapV2.removeLiquidity(
-        props.tokenAID,
-        props.tokenBID,
-        props.poolID,
-        props.liquidityStr,
-        props.amountAMinStr,
-        props.amountBMinStr
-      );
-    } else {
-      // zrc2-zrc2 pair
-      observedTx = await zilswapV2.removeLiquidityZIL(
-        props.tokenAID,
-        props.poolID,
-        props.liquidityStr,
-        props.amountAMinStr,
-        props.amountBMinStr
-      );
-    }
+    const observedTx = await zilswapV2.removeLiquidity(
+      props.pool.token0Address,
+      props.pool.token1Address,
+      props.pool.poolAddress,
+      props.liquidity.toString(10),
+      props.amount0Min.toString(10),
+      props.amount1Min.toString(10),
+    );
 
     handleObservedTx(observedTx!);
 
     return observedTx!;
   };
+
+  static findSwapPath = (inTokenAddress: string, outTokenAddress: string, tokenInAmount: BigNumber) => {
+    const result = ZilswapConnector.getSDK().findSwapPathIn([], inTokenAddress, outTokenAddress, tokenInAmount, 3);
+    return result;
+  }
 
   /**
    * Abstraction for Zilswap SDK functions
@@ -328,46 +329,43 @@ export class ZilswapConnector {
   static swap = async (props: SwapProps) => {
     if (!zilswapV2) throw new Error('not initialized');
 
-    const { exactOf, tokenInID, tokenOutID, amount, amountInMax, amountOutMin, maxAdditionalSlippage, recipientAddress } = props
-
     // Check if the transaction involves ZIL
-    let isZilIn = tokenInID === ZIL_ADDRESS
-    let isZilOut = tokenOutID === ZIL_ADDRESS
+    // let isZilIn = tokenInID === ZIL_ADDRESS
+    // let isZilOut = tokenOutID === ZIL_ADDRESS
 
-    // TODO: proper token blacklist
-    if (tokenOutID === "zil13c62revrh5h3rd6u0mlt9zckyvppsknt55qr3u")
-      throw new Error("Suspected malicious token detected, swap disabled");
-
-    logger(exactOf);
-    logger(tokenInID);
-    logger(tokenOutID);
-    logger(amount.toString());
-    logger(maxAdditionalSlippage);
-    logger(recipientAddress);
+    logger(props.exactOf);
+    logger(props.tokenInID);
+    logger(props.amount.toString(10));
+    logger(props.amountInMax?.toString(10));
+    logger(props.amountOutMin?.toString(10));
+    logger(props.maxAdditionalSlippage);
+    logger(props.recipientAddress);
 
     let observedTx: ObservedTx;
     switch (props.exactOf) {
       case "in":
-        if (isZilIn) {
-          observedTx = await zilswapV2.swapExactZILForTokens(tokenInID, tokenOutID, amount.toString(), amountOutMin!.toString(), maxAdditionalSlippage)
-        }
-        else if (isZilOut) {
-          observedTx = await zilswapV2.swapExactTokensForZIL(tokenInID, tokenOutID, amount.toString(), amountOutMin!.toString(), maxAdditionalSlippage)
-        }
-        else if (!isZilIn && !isZilOut) {
-          observedTx = await zilswapV2.swapExactTokensForTokens(tokenInID, tokenOutID, amount.toString(), amountOutMin!.toString(), maxAdditionalSlippage)
-        }
+        observedTx = await zilswapV2.swapExactTokensForTokens(props.path, props.tokenInID, props.amount?.toString(10) ?? "0", props.amountOutMin?.toString(10) ?? "0", props.maxAdditionalSlippage)
+        // if (isZilIn) {
+        //   observedTx = await zilswapV2.swapExactZILForTokens(tokenInID, tokenOutID, amount.toString(), amountOutMin!.toString(), maxAdditionalSlippage)
+        // }
+        // else if (isZilOut) {
+        //   observedTx = await zilswapV2.swapExactTokensForZIL(tokenInID, tokenOutID, amount.toString(), amountOutMin!.toString(), maxAdditionalSlippage)
+        // }
+        // else if (!isZilIn && !isZilOut) {
+        //   observedTx = await zilswapV2.swapExactTokensForTokens(tokenInID, tokenOutID, amount.toString(), amountOutMin!.toString(), maxAdditionalSlippage)
+        // }
         break;
       case "out":
-        if (isZilIn) {
-          observedTx = await zilswapV2.swapZILForExactTokens(tokenInID, tokenOutID, amountInMax!.toString(), amount.toString(), maxAdditionalSlippage)
-        }
-        else if (isZilOut) {
-          observedTx = await zilswapV2.swapTokensForExactZIL(tokenInID, tokenOutID, amountInMax!.toString(), amount.toString(), maxAdditionalSlippage)
-        }
-        else if (!isZilIn && !isZilOut) {
-          observedTx = await zilswapV2.swapTokensForExactTokens(tokenInID, tokenOutID, amountInMax!.toString(), amount.toString(), maxAdditionalSlippage)
-        }
+        observedTx = await zilswapV2.swapTokensForExactTokens(props.path, props.tokenInID, props.amount?.toString(10) ?? "0", props.amountInMax?.toString(10) ?? "0", props.maxAdditionalSlippage)
+        // if (isZilIn) {
+        //   observedTx = await zilswapV2.swapZILForExactTokens(tokenInID, tokenOutID, amountInMax!.toString(), amount.toString(), maxAdditionalSlippage)
+        // }
+        // else if (isZilOut) {
+        //   observedTx = await zilswapV2.swapTokensForExactZIL(tokenInID, tokenOutID, amountInMax!.toString(), amount.toString(), maxAdditionalSlippage)
+        // }
+        // else if (!isZilIn && !isZilOut) {
+        //   observedTx = await zilswapV2.swapTokensForExactTokens(tokenInID, tokenOutID, amountInMax!.toString(), amount.toString(), maxAdditionalSlippage)
+        // }
         break;
       default:
         throw new Error("Invalid swap")

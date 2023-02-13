@@ -1,5 +1,4 @@
 import { Network } from "zilswap-sdk/lib/constants";
-import { ZiloAppState } from "zilswap-sdk/lib/zilo";
 import { ChainInitProps } from './types'
 
 export const BlockchainActionTypes = {
@@ -27,14 +26,6 @@ export function initialize(payload: ChainInitProps) {
     payload
   }
 };
-
-export function setZiloState(address: string, state: ZiloAppState) {
-  return {
-    type: BlockchainActionTypes.SET_ZILO_STATE,
-    address,
-    state,
-  }
-}
 
 export function setNetwork(network: Network) {
   return {

@@ -1,13 +1,10 @@
-import React, { useMemo, useState } from 'react';
 import { makeStyles, useTheme } from '@material-ui/core';
 import { toBech32Address } from '@zilliqa-js/crypto';
-import cls from 'classnames';
-import { useSelector } from 'react-redux';
-import { Blockchain } from 'carbon-js-sdk';
-import { Network } from 'zilswap-sdk/lib/constants';
-import { useNetwork } from 'app/utils';
 import { AppTheme } from 'app/theme/types';
-import { BridgeableTokenMapping, RootState } from 'app/store/types';
+import { useNetwork } from 'app/utils';
+import cls from 'classnames';
+import React, { useMemo, useState } from 'react';
+import { Network } from 'zilswap-sdk/lib/constants';
 import legacySvg from './legacy-zil.svg';
 
 const useStyles = makeStyles((theme: AppTheme) => ({
@@ -31,19 +28,14 @@ const CurrencyLogo = (props: any) => {
     currency,
     address,
     className,
-    blockchain,
     legacy,
   }: {
     currency: string | false;
     address: string;
     className: string;
-    blockchain?: Blockchain;
     legacy?: boolean;
   } = props;
   const classes = useStyles();
-  const bridgeTokens = useSelector<RootState, BridgeableTokenMapping>(
-    state => state.bridge.tokens
-  );
   const theme = useTheme();
   const [error, setError] = useState<boolean>(false);
   const network = useNetwork();
@@ -53,19 +45,8 @@ const CurrencyLogo = (props: any) => {
   let tokenIconUrl: string;
 
   const logoAddress = useMemo(() => {
-    if (blockchain === Blockchain.Ethereum) {
-      const tokenHash = address.replace(/^0x/i, '');
-      const bridgeToken = bridgeTokens.eth.find(
-        bridgeToken => bridgeToken.tokenAddress === tokenHash
-      );
-
-      if (bridgeToken) {
-        return toBech32Address(bridgeToken.toTokenAddress);
-      }
-    }
-
     return address;
-  }, [blockchain, address, bridgeTokens.eth]);
+  }, [address]);
 
   if (network === Network.TestNet) {
     if (isZil) tokenIconUrl = `https://meta.viewblock.io/ZIL/logo${urlSuffix}`;

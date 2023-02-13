@@ -1,8 +1,7 @@
 
-import { ContractState } from "zilswap-sdk";
-import { ZiloAppState } from "zilswap-sdk/lib/zilo";
-import { Network } from "zilswap-sdk/lib/constants"
 import { ConnectedWallet } from "core/wallet";
+import { ContractState } from "zilswap-sdk";
+import { Network } from "zilswap-sdk/lib/constants";
 
 export interface BlockchainState {
   ready: boolean
@@ -10,9 +9,6 @@ export interface BlockchainState {
   tokens: {}
   contracts: {
     zilswap: ContractState,
-    zilo: {
-      [key in string]: ZiloAppState // ok, it's not just the contract state but this makes it easy for us to get derived states
-    },
   }
 };
 

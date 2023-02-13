@@ -14,7 +14,7 @@ import { ZeevesConnectedWallet } from "./ZeevesConnectedWallet";
 import { BoltXConnectedWallet } from "./BoltXConnectedWallet";
 
 export const parseBalanceResponse = (balanceRPCResponse: RPCResponse<any, string>) => {
-  let balanceResult = null;
+  let balanceResult: { balance: number } | null = null;
   try {
     // force cast required due to dependency resolution conflict
     balanceResult = RPCHandler.parseResponse(balanceRPCResponse);
@@ -57,7 +57,8 @@ export const connectWalletZilPay = async (zilPay: any): Promise<ConnectWalletRes
     throw new Error("Please sign in to your ZilPay account before connecting.");
   const timestamp = dayjs();
 
-  const net = zilPay.wallet.net;
+  let net = zilPay.wallet.net;
+  if (net === "private") net = "testnet";
   const network = ZilPayNetworkMap[net];
   if (!network)
     throw new Error(`Unsupported network for ZilPay: ${net}`);
@@ -106,17 +107,17 @@ export const connectWalletZeeves = async (zeeves: any): Promise<ConnectWalletRes
     const network = ZeevesNetworkMap[net];
     if (!network)
       throw new Error(`Unsupported Zeeves network: ${net}`);
-  
+
     const wallet = new ZeevesConnectedWallet({
-      network, 
+      network,
       timestamp,
       zeeves: zeeves as WalletProvider,
       bech32: account!.bech32,
       byte20: account!.byte20
     });
-  
+
     return { wallet };
-  } catch(err) {
+  } catch (err) {
     console.error(err.stack);
     throw new Error("Error connecting Zeeves wallet");
   }

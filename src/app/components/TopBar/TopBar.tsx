@@ -6,7 +6,6 @@ import { Link as RouterLink, useLocation, useHistory } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { Brand } from "app/components/TopBar/components";
 import { ReactComponent as Logo } from "app/components/NavDrawer/logo2.svg";
-import RewardsInfoButton from "app/layouts/RewardsInfoButton";
 import { RootState, WalletState } from "app/store/types";
 import { AppTheme } from "app/theme/types";
 import ConnectWalletButton from "../ConnectWalletButton";
@@ -226,7 +225,6 @@ const TopBar: React.FC<Props> = (
             </div>
           ) : (
             <Fragment>
-              <RewardsInfoButton />
               <Hidden xsDown>
                 <ConnectWalletButton />
               </Hidden>

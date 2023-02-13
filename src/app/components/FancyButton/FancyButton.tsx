@@ -16,6 +16,7 @@ export interface FancyButtonProps extends ButtonProps {
   walletRequired?: boolean;
   loadingTxApprove?: boolean;
   showTxApprove?: boolean;
+  approveText?: string;
   onClickTxApprove?: () => any;
 };
 
@@ -74,7 +75,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 const FancyButton: React.FC<FancyButtonProps> = (props: any) => {
-  const { children, loading, loadingText, className, containerClass, walletRequired, disabled, loadingTxApprove, showTxApprove, onClickTxApprove, onClick, ...rest } = props;
+  const { children, loading, loadingText, className, containerClass, walletRequired, disabled, loadingTxApprove, showTxApprove, approveText, onClickTxApprove, onClick, ...rest } = props;
   const classes = useStyles();
   const dispatch = useDispatch();
   const network = useNetwork();
@@ -118,7 +119,7 @@ const FancyButton: React.FC<FancyButtonProps> = (props: any) => {
       {(showTxApprove && walletState.wallet) && (
         <Tooltip title="Transaction needs to be approved before swapping or adding liquidity">
           <Button onClick={onClickTxApprove} disabled={approveButtonDisabled} className={cls(classes.unlockButton, className)} color="primary" variant="contained">
-            {!loadingTxApprove && "1. Unlock"}
+            {!loadingTxApprove && `1. ${approveText ?? "Unlock"}`}
             {!!loadingTxApprove && (
               <CircularProgress size={24} className={classes.progress} />
             )}

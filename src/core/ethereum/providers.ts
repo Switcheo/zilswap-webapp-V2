@@ -23,11 +23,11 @@ export const providerOptions = {
     },
     package: ethers.providers.Provider,
     connector: async () => {
-      let provider = null;
+      let provider: any = null;
       if (typeof (window as any).boltX !== 'undefined') {
         provider = (window as any).boltX.ethereum;
         try {
-          await provider.request({ method: 'eth_requestAccounts' })
+          await provider!.request({ method: 'eth_requestAccounts' })
         } catch (error) {
           throw new Error("User Rejected");
         }

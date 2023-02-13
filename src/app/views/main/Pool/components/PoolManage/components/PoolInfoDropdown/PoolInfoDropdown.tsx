@@ -1,18 +1,17 @@
-import React, { useState } from "react";
 import { Box, BoxProps, Button, Divider } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import { ArrowDropDownRounded, ArrowDropUpRounded } from "@material-ui/icons";
-import { Link } from "react-router-dom";
-import cls from "classnames";
-import { useDispatch, useSelector } from "react-redux";
-import { actions } from "app/store";
 import { AmountLabel, ContrastBox, KeyValueDisplay, PoolLogo, Text } from "app/components";
-import { PotentialRewards, RootState, TokenInfo, TokenState } from "app/store/types";
+import { actions } from "app/store";
+import { RootState, TokenInfo, TokenState } from "app/store/types";
 import { AppTheme } from "app/theme/types";
-import { BIG_ZERO, ZIL_ADDRESS } from "app/utils/constants";
-import { toHumanNumber } from "app/utils";
-import { useNetwork, useValueCalculators } from "app/utils";
-import { EMPTY_USD_VALUE } from "app/store/token/reducer";
+import { bnOrZero, toHumanNumber, useNetwork, useValueCalculators } from "app/utils";
+import { BIG_ZERO } from "app/utils/constants";
+import cls from "classnames";
+import { ZilswapConnector } from "core/zilswap";
+import React, { useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Link } from "react-router-dom";
 
 interface Props extends BoxProps {
   token: TokenInfo;
@@ -44,47 +43,37 @@ const PoolInfoDropdown: React.FC<Props> = (props: Props) => {
   const classes = useStyles();
   const valueCalculators = useValueCalculators();
   const network = useNetwork();
-  const potentialRewardsByPool = useSelector<RootState, PotentialRewards>((state) => state.rewards.potentialRewardsByPool);
   const tokenState = useSelector<RootState, TokenState>((state) => state.token);
   const [active, setActive] = useState<boolean>(false);
-  const poolPair: [string, string] = [token.symbol, "ZIL"];
 
   const onToggleDropdown = () => {
     setActive(!active);
   };
 
-  const poolShare = token.pool?.contributionPercentage.shiftedBy(-2) ?? BIG_ZERO;
-  const poolShareLabel = poolShare.shiftedBy(2).decimalPlaces(3).toString(10) ?? "";
-  const tokenAmount = poolShare.times(token.pool?.tokenReserve ?? BIG_ZERO);
-  const zilAmount = poolShare.times(token.pool?.zilReserve ?? BIG_ZERO);
+  const { pool, token0, token1 } = useMemo(() => {
+    const pool = ZilswapConnector.getPoolByAddress(token.address);
+    const token0 = tokenState.tokens[pool?.token0Address ?? ""];
+    const token1 = tokenState.tokens[pool?.token1Address ?? ""];
 
-  const poolValue = valueCalculators.pool(tokenState.prices, token);
+    return { pool, token0, token1 };
+  }, [token.address, tokenState.tokens]);
+
+  const poolShare = bnOrZero(token.balance).div(bnOrZero(pool?.totalSupply));
+  const poolShareLabel = poolShare.shiftedBy(2).decimalPlaces(3).toString(10) ?? "";
+  const token0Amount = poolShare.times(pool?.token0Reserve ?? BIG_ZERO);
+  const token1Amount = poolShare.times(pool?.token1Reserve ?? BIG_ZERO);
+
+  const poolInfo = pool && token0 && token1 ? { pool, token0, token1 } : undefined;
+  const poolValue = valueCalculators.pool(tokenState.prices, poolInfo, token);
   const depositedValue = poolShare.times(poolValue);
 
-  const rawPotentialRewards = potentialRewardsByPool[token.address] ?? [];
-  const usdValues = tokenState.values[token.address] ?? EMPTY_USD_VALUE;
-
-  const potentialRewards = rawPotentialRewards.map(item => {
-    const rewardToken = tokenState.tokens[item.tokenAddress];
-    return {
-      rewardToken,
-      amount: item.amount,
-      value: valueCalculators.amount(tokenState.prices, rewardToken, item.amount),
-    }
-  })
-
-  const roiPerSecond = usdValues.rewardsPerSecond.dividedBy(usdValues.poolLiquidity);
-  const secondsPerDay = 24 * 3600
-  const roiPerDay = roiPerSecond.times(secondsPerDay).shiftedBy(2).decimalPlaces(2);
-  const roiLabel = roiPerDay.isZero() ? "-" : `${roiPerDay.dp(2).toFormat()}%`
-
   const onGotoAdd = () => {
-    dispatch(actions.Pool.select({ token, network }));
+    dispatch(actions.Pool.select({ pool, network }));
     dispatch(actions.Layout.showPoolType("add"));
   };
 
   const onGotoRemove = () => {
-    dispatch(actions.Pool.select({ token, network }));
+    dispatch(actions.Pool.select({ pool, network }));
     dispatch(actions.Layout.showPoolType("remove"));
   };
 
@@ -92,8 +81,8 @@ const PoolInfoDropdown: React.FC<Props> = (props: Props) => {
     <Box {...rest} className={cls(classes.root, className)}>
       <Button variant="text" fullWidth className={classes.buttonWrapper} onClick={onToggleDropdown} disableRipple>
         <Box flex={1} display="flex" alignItems="center">
-          <PoolLogo pair={poolPair} tokenAddress={token.address} />
-          <Text marginLeft={1}>{poolPair.join(" - ")}</Text>
+          <PoolLogo pair={[token0.symbol, token1.symbol]} tokenAddress={token.address} />
+          <Text marginLeft={1}>{token0.symbol} - {token1.symbol}</Text>
           <Box flex={1} />
           {active && <ArrowDropUpRounded className={classes.arrowIcon} />}
           {!active && <ArrowDropDownRounded className={classes.arrowIcon} />}
@@ -107,37 +96,21 @@ const PoolInfoDropdown: React.FC<Props> = (props: Props) => {
               justifyContent="flex-end"
               marginBottom={1}
               marginTop={-0.5}
-              currency={token.symbol}
-              address={token.address}
-              amount={tokenAmount}
+              currency={token0.symbol}
+              address={token0.address}
+              amount={token0Amount}
               compression={token.decimals} />
             <AmountLabel
               iconStyle="small"
               justifyContent="flex-end"
-              currency="ZIL"
-              address={ZIL_ADDRESS}
-              amount={zilAmount} />
+              currency={token1.symbol}
+              address={token1.address}
+              amount={token1Amount}
+              compression={token.decimals} />
             <Text variant="body2" className={classes.textGreen} align="right">
               ≈ ${toHumanNumber(depositedValue, 2)}
             </Text>
           </KeyValueDisplay>
-          {
-            potentialRewards.map(reward => (
-              [
-                <KeyValueDisplay marginBottom={1.5} kkey="Your Potential Rewards" ValueComponent="span">
-                  <Text color="textPrimary">
-                    {toHumanNumber(reward.amount.shiftedBy(-reward.rewardToken.decimals))} {reward.rewardToken.symbol}
-                  </Text>
-                  <Text variant="body2" className={classes.textGreen} align="right">
-                    ≈ ${toHumanNumber(reward.value, 2)}
-                  </Text>
-                </KeyValueDisplay>,
-                <KeyValueDisplay marginBottom={1.5} kkey="ROI" ValueComponent="span">
-                  <Text color="textPrimary">{roiLabel} / daily</Text>
-                </KeyValueDisplay>
-              ]
-            ))
-          }
 
           <Box display="flex" marginTop={3}>
             <Button

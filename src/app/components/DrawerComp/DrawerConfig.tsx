@@ -45,15 +45,6 @@ const DrawerConfig: SimpleMap<DrawerInfo[]> = {
     drawerText: "Pool",
     navLink: "/pool",
     highlightPaths: ["/pool"],
-  }],
-  zilo: [{
-    drawerText: "Current",
-    navLink: "/zilo/current",
-    highlightPaths: ["/zilo/current"],
-  }, {
-    drawerText: "Past",
-    navLink: "/zilo/past",
-    highlightPaths: ["/zilo/past"],
   }]
 }
 

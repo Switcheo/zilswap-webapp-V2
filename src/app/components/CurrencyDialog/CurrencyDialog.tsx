@@ -1,20 +1,135 @@
-import React, { useEffect, useState } from "react";
-import { Box, CircularProgress, DialogContent, DialogProps, IconButton, InputAdornment, OutlinedInput, makeStyles } from "@material-ui/core";
-import { toBech32Address } from "@zilliqa-js/zilliqa";
-import BigNumber from "bignumber.js";
-import clsx from "clsx";
-import { useDispatch, useSelector } from "react-redux";
-import { Blockchain } from "carbon-js-sdk";
+import { Box, CircularProgress, DialogContent, DialogProps, IconButton, InputAdornment, makeStyles, OutlinedInput } from "@material-ui/core";
 import CloseIcon from "@material-ui/icons/CloseOutlined";
 import { DialogModal } from "app/components";
-import { BridgeState } from "app/store/bridge/types";
-import { RootState, TokenInfo, TokenState, WalletState } from "app/store/types";
-import { hexToRGBA, useTaskSubscriber } from "app/utils";
-import { BIG_ZERO, HIDE_SWAP_TOKEN_OVERRIDE, LoadingKeys, ZIL_ADDRESS } from "app/utils/constants";
 import { actions } from "app/store";
+import { RootState, TokenInfo, TokenState, WalletState } from "app/store/types";
 import { AppTheme } from "app/theme/types";
-import { getMarketplace } from "app/saga/selectors";
+import { hexToRGBA, useTaskSubscriber } from "app/utils";
+import { HIDE_SWAP_TOKEN_OVERRIDE, LoadingKeys } from "app/utils/constants";
+import BigNumber from "bignumber.js";
+import { Blockchain } from "carbon-js-sdk";
+import clsx from "clsx";
+import React, { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { CurrencyList } from "./components";
+
+
+export type CurrencyListType = "zil" | "ark-zil" | "bridge-zil" | "bridge-eth";
+
+export interface CurrencyDialogProps extends DialogProps {
+  onSelectCurrency: (token: TokenInfo) => void;
+  poolOnly?: boolean,
+  noPool?: boolean,
+  wrapZil?: boolean,
+  token?: TokenInfo | null;
+  tokenList: CurrencyListType;
+};
+
+const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProps) => {
+  const { className, onSelectCurrency, poolOnly = false, noPool = false, tokenList, open, token, onClose, wrapZil } = props;
+  const classes = useStyles();
+  const [search, setSearch] = useState("");
+  const [tokens, setTokens] = useState<TokenInfo[]>([]);
+  const [loadingConnectWallet] = useTaskSubscriber(...LoadingKeys.connectWallet);
+  const dispatch = useDispatch();
+
+  const tokenState = useSelector<RootState, TokenState>(state => state.token);
+  const walletState = useSelector<RootState, WalletState>(state => state.wallet);
+
+  useEffect(() => {
+    if (!tokenState.tokens) return setTokens([]);
+    const sortFn = (lhs: TokenInfo, rhs: TokenInfo) => {
+      if (!walletState.wallet) return 0;
+      if (lhs.isZil) return -1;
+      if (rhs.isZil) return 1;
+      const difference = new BigNumber(rhs.balance?.toString() || 0).comparedTo(lhs.balance?.toString() || 0);
+      return difference !== 0 ? difference : lhs.symbol.localeCompare(rhs.symbol);
+    };
+
+    let tokens = Object.values(tokenState.tokens);
+    if (tokenList === 'zil') {
+      tokens = tokens.filter(t => t.blockchain === Blockchain.Zilliqa)
+    }
+
+    setTokens(tokens.sort(sortFn));
+
+    if (wrapZil) {
+      tokens = tokens.filter(t => t.isZil || t.isWzil);
+      setTokens(tokens);
+    }
+
+    if (token && !tokens.find(t => t.address === token.address) && tokens.length > 0)
+      onSelectCurrency(tokens[0]);
+  }, [tokenState.tokens, walletState.wallet, tokenList, wrapZil, token, onSelectCurrency]);
+
+  const onToggleUserToken = (token: TokenInfo) => {
+    if (!tokenState.userSavedTokens.includes(token.address)) setSearch("");
+    dispatch(actions.Token.updateUserSavedTokens(token.address))
+  };
+
+  const filteredTokens = useMemo(() => {
+    const filterSearch = (token: TokenInfo): boolean => {
+      const searchTerm = search.toLowerCase().trim();
+      if (!token.isPoolToken && poolOnly === true) return false;
+      if (token.isPoolToken && noPool === true) return false;
+      if (searchTerm === "" && !tokenState.userSavedTokens.includes(token.address) && !token.registered) return false;
+      if (HIDE_SWAP_TOKEN_OVERRIDE.includes(token.address)) return false;
+
+      if (!token.registered && !tokenState.userSavedTokens.includes(token.address)) {
+        return token.address.toLowerCase() === searchTerm;
+      }
+
+      return token.address.toLowerCase() === searchTerm ||
+        (typeof token.name === "string" && token.name?.toLowerCase().includes(searchTerm)) ||
+        token.symbol.toLowerCase().includes(searchTerm);
+    };
+
+    return tokens.filter(filterSearch);
+  }, [tokens, search, poolOnly, noPool, tokenState.userSavedTokens]);
+
+  return (
+    <DialogModal header="Select Token" open={open} onClose={onClose} className={clsx(classes.root, className)}>
+      <DialogContent className={classes.dialogContent}>
+        {!loadingConnectWallet && (
+          <OutlinedInput
+            placeholder="Search name or enter address"
+            value={search}
+            fullWidth
+            classes={{ input: classes.inputText }}
+            className={classes.input}
+            onChange={(e) => setSearch(e.target.value)}
+            endAdornment={
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label="Clear search"
+                  onClick={() => setSearch("")}
+                >
+                  <CloseIcon className={classes.closeIcon} />
+                </IconButton>
+              </InputAdornment>
+            }
+          />
+        )}
+        {(loadingConnectWallet || !tokenState.initialized) && (
+          <Box display="flex" justifyContent="center">
+            <CircularProgress color="primary" />
+          </Box>
+        )}
+
+        <Box className={classes.currenciesContainer}>
+          <CurrencyList
+            tokens={filteredTokens}
+            search={search}
+            emptyStateLabel="No token found."
+            userTokens={tokenState.userSavedTokens}
+            onToggleUserToken={onToggleUserToken}
+            onSelectCurrency={onSelectCurrency}
+            className={clsx(classes.currencies)} />
+        </Box>
+      </DialogContent>
+    </DialogModal>
+  )
+}
 
 const useStyles = makeStyles((theme: AppTheme) => ({
   root: {
@@ -90,140 +205,5 @@ const useStyles = makeStyles((theme: AppTheme) => ({
     color: theme.palette.primary.main,
   },
 }));
-
-export type CurrencyListType = "zil" | "ark-zil" | "bridge-zil" | "bridge-eth";
-
-export interface CurrencyDialogProps extends DialogProps {
-  onSelectCurrency: (token: TokenInfo) => void;
-  hideZil?: boolean;
-  hideNoPool?: boolean;
-  showContribution?: boolean;
-  zrc2Only?: boolean;
-  token?: TokenInfo | null;
-  tokenList: CurrencyListType;
-  wrapZil?: boolean;
-};
-
-const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProps) => {
-  const { className, onSelectCurrency, hideZil, hideNoPool, showContribution, zrc2Only, tokenList, open, token, onClose, wrapZil } = props;
-  const classes = useStyles();
-  const [search, setSearch] = useState("");
-  const [tokens, setTokens] = useState<TokenInfo[]>([]);
-  const [loadingConnectWallet] = useTaskSubscriber(...LoadingKeys.connectWallet);
-  const dispatch = useDispatch();
-
-  const tokenState = useSelector<RootState, TokenState>(state => state.token);
-  const walletState = useSelector<RootState, WalletState>(state => state.wallet);
-  const bridgeState = useSelector<RootState, BridgeState>(state => state.bridge);
-  const { exchangeInfo } = useSelector(getMarketplace);
-
-  useEffect(() => {
-    if (!tokenState.tokens) return setTokens([]);
-    const sortFn = (lhs: TokenInfo, rhs: TokenInfo) => {
-      if (!walletState.wallet) return 0;
-      if (lhs.isZil) return -1;
-      if (rhs.isZil) return 1;
-      // if (showContribution) {
-      //   // sort first by contribution
-      //   const difference = (rhs.pool?.userContribution || BIG_ZERO)
-      //     .comparedTo(lhs.pool?.userContribution || BIG_ZERO);
-      //   // then lexicographically by symbol
-      //   return difference !== 0 ? difference : lhs.symbol.localeCompare(rhs.symbol);
-      // }
-      const difference = new BigNumber(rhs.balance?.toString() || 0).comparedTo(lhs.balance?.toString() || 0);
-      return difference !== 0 ? difference : lhs.symbol.localeCompare(rhs.symbol);
-    };
-    let tokens = Object.values(tokenState.tokens);
-    if (tokenList === 'zil') {
-      tokens = tokens.filter(t => t.blockchain === Blockchain.Zilliqa)
-    } else if (tokenList === 'ark-zil') {
-      const exchangeDenoms = exchangeInfo?.denoms;
-      tokens = tokens.filter(t => t.blockchain === Blockchain.Zilliqa && exchangeDenoms && exchangeDenoms.includes(t.address))
-    } else if (tokenList === 'bridge-eth') {
-      tokens = tokens.filter(t => t.blockchain === Blockchain.Ethereum)
-    } else if (tokenList === 'bridge-zil') {
-      tokens = tokens.filter(t => bridgeState.tokens[Blockchain.Zilliqa].findIndex(b => toBech32Address(b.tokenAddress) === t.address) >= 0)
-    }
-
-    if (zrc2Only)
-      tokens = tokens.filter(t => t.address !== ZIL_ADDRESS);
-    setTokens(tokens.sort(sortFn));
-
-    if (wrapZil) {
-      tokens = tokens.filter(t => t.isZil || t.isWzil);
-      setTokens(tokens);
-    }
-
-    if (token && !tokens.find(t => t.address === token.address) && tokens.length > 0)
-      onSelectCurrency(tokens[0]);
-  }, [tokenState.tokens, walletState.wallet, bridgeState.tokens, showContribution, tokenList, exchangeInfo?.denoms, zrc2Only, wrapZil, token, onSelectCurrency]);
-
-  const filterSearch = (token: TokenInfo): boolean => {
-    const searchTerm = search.toLowerCase().trim();
-    if (token.isZil && hideZil) return false;
-    if (!token.isZil && !token.pool && hideNoPool && !token.isWzil) return false;
-    if (searchTerm === "" && !token.registered && !tokenState.userSavedTokens.includes(token.address)) return false;
-    if (HIDE_SWAP_TOKEN_OVERRIDE.includes(token.address)) return false;
-
-    if (!token.registered && !tokenState.userSavedTokens.includes(token.address)) {
-      return token.address.toLowerCase() === searchTerm;
-    }
-
-    return token.address.toLowerCase() === searchTerm ||
-      (typeof token.name === "string" && token.name?.toLowerCase().includes(searchTerm)) ||
-      token.symbol.toLowerCase().includes(searchTerm);
-  };
-
-  const onToggleUserToken = (token: TokenInfo) => {
-    if (!tokenState.userSavedTokens.includes(token.address)) setSearch("");
-    dispatch(actions.Token.updateUserSavedTokens(token.address))
-  };
-
-  const filteredTokens = tokens.filter(filterSearch);
-
-  return (
-    <DialogModal header="Select Token" open={open} onClose={onClose} className={clsx(classes.root, className)}>
-      <DialogContent className={classes.dialogContent}>
-        {!loadingConnectWallet && (
-          <OutlinedInput
-            placeholder="Search name or enter address"
-            value={search}
-            fullWidth
-            classes={{ input: classes.inputText }}
-            className={classes.input}
-            onChange={(e) => setSearch(e.target.value)}
-            endAdornment={
-              <InputAdornment position="end">
-                <IconButton
-                  aria-label="Clear search"
-                  onClick={() => setSearch("")}
-                >
-                  <CloseIcon className={classes.closeIcon} />
-                </IconButton>
-              </InputAdornment>
-            }
-          />
-        )}
-        {(loadingConnectWallet || !tokenState.initialized) && (
-          <Box display="flex" justifyContent="center">
-            <CircularProgress color="primary" />
-          </Box>
-        )}
-
-        <Box className={classes.currenciesContainer}>
-          <CurrencyList
-            tokens={filteredTokens}
-            search={search}
-            emptyStateLabel="No token found."
-            showContribution={showContribution}
-            userTokens={tokenState.userSavedTokens}
-            onToggleUserToken={onToggleUserToken}
-            onSelectCurrency={onSelectCurrency}
-            className={clsx(classes.currencies)} />
-        </Box>
-      </DialogContent>
-    </DialogModal>
-  )
-}
 
 export default CurrencyDialog;

@@ -1,20 +1,8 @@
-import React, {
-  Fragment,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
 import { Box, Paper } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
-import { PaperProps } from "material-ui";
-import { useSelector } from "react-redux";
-import { useRouteMatch } from "react-router-dom";
-import { TokenGraph } from "app/components";
-import {
-  RootState,
-  SwapFormState,
-} from "app/store/types";
 import { AppTheme } from "app/theme/types";
+import { PaperProps } from "material-ui";
+import React, { Fragment, useRef } from "react";
 
 // const CustomRouterLink = forwardRef((props: any, ref: any) => (
 //   <div ref={ref} style={{ flexGrow: 1, flexBasis: 1 }}>
@@ -23,6 +11,26 @@ import { AppTheme } from "app/theme/types";
 // ));
 
 const CARD_BORDER_RADIUS = 12;
+
+const MainCard: React.FC<PaperProps> = (props: any) => {
+  const { children, className, staticContext, ...rest } = props;
+  const classes = useStyles();
+  const boxRef = useRef<HTMLDivElement | null>(null);
+
+  return (
+    <Fragment>
+      <Box className={classes.root}>
+        <Box display="flex" justifyContent="center">
+          <Box width={488}>
+            <Paper {...{ ref: boxRef }} {...rest} className={classes.card}>
+              <Box>{children}</Box>
+            </Paper>
+          </Box>
+        </Box>
+      </Box>
+    </Fragment>
+  );
+};
 
 const useStyles = makeStyles((theme: AppTheme) => ({
   root: {
@@ -121,111 +129,4 @@ const useStyles = makeStyles((theme: AppTheme) => ({
     },
   },
 }));
-const MainCard: React.FC<PaperProps> = (props: any) => {
-  const { children, className, staticContext, ...rest } = props;
-  const classes = useStyles();
-  // const isPool = useRouteMatch("/pool");
-  const isSwap = useRouteMatch("/swap");
-  // const layoutState = useSelector<RootState, LayoutState>(
-  //   (state) => state.layout
-  // );
-  const swapState = useSelector<RootState, SwapFormState>(
-    (state) => state.swap
-  );
-  // const poolToken = useSelector<RootState, TokenInfo | null>(
-  //   (state) => state.pool.token
-  // );
-  // const transactionState = useSelector<RootState, TransactionState>(
-  //   (state) => state.transaction
-  // );
-  const boxRef = useRef<HTMLDivElement | null>(null);
-  const [boxHeight, setBoxHeight] = useState<number>(0);
-
-  useEffect(() => {
-    if (boxRef.current?.clientHeight) {
-      setBoxHeight(boxRef.current?.clientHeight || 0);
-    }
-    // eslint-disable-next-line
-  }, [boxRef.current?.clientHeight]);
-
-  // const hasNotification =
-  //   // show new pool warning
-  //   (isPool && poolToken && !poolToken?.pool) ||
-  //   // show liquidity fee (add liquidity incentive) message
-  //   (isPool &&
-  //     !layoutState.liquidityEarnHidden &&
-  //     layoutState.showPoolType === "add") ||
-  //   // show user created token warning for pool
-  //   (isPool && poolToken?.pool && !poolToken?.registered) ||
-  //   // show user created token warning for swap
-  //   (isSwap &&
-  //     ((swapState.inToken && !swapState.inToken.registered) ||
-  //       (swapState.outToken && !swapState.outToken.registered))) ||
-  //   // show generic notification
-  //   !!layoutState.notification ||
-  //   // show confirming tx message
-  //   transactionState.observingTxs.length > 0 ||
-  //   // show confirmed tx message
-  //   transactionState.submittedTxs.length > 0;
-
-  const showGraph = isSwap && (swapState.inToken || swapState.outToken);
-
-  // const closeAdvancedSetting = () => {
-  //   dispatch(actions.Layout.showAdvancedSetting(false));
-  // };
-
-  return (
-    <Fragment>
-      <Box className={classes.root}>
-        {/* <Box display="flex" justifyContent="center">
-          <Box className={classes.tabs}>
-            <Button
-              disableElevation
-              onClick={closeAdvancedSetting}
-              color="primary"
-              variant="contained"
-              className={cls(classes.tab, classes.tabLeft)}
-              activeClassName={cls(classes.tabActive, {
-                [classes.tabNoticeOpposite]: hasNotification,
-              })}
-              component={CustomRouterLink}
-              to="/swap"
-            >
-              Swap
-            </Button>
-            <Button
-              disableElevation
-              onClick={closeAdvancedSetting}
-              color="primary"
-              variant="contained"
-              className={cls(classes.tab, classes.tabRight)}
-              activeClassName={cls(classes.tabActive, {
-                [classes.tabNoticeOpposite]: hasNotification,
-              })}
-              component={CustomRouterLink}
-              to="/pool"
-            >
-              Pool
-            </Button>
-          </Box>
-        </Box> */}
-        <Box display="flex" justifyContent="center">
-          {showGraph && (
-            <TokenGraph
-              boxHeight={boxHeight}
-              inToken={swapState.inToken}
-              outToken={swapState.outToken}
-            />
-          )}
-          <Box width={488}>
-            <Paper {...{ ref: boxRef }} {...rest} className={classes.card}>
-              <Box>{children}</Box>
-            </Paper>
-          </Box>
-        </Box>
-      </Box>
-    </Fragment>
-  );
-};
-
 export default MainCard;

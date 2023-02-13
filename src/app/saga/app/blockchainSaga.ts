@@ -1,48 +1,38 @@
-import { Channel, EventChannel, channel, eventChannel } from 'redux-saga';
+import { Channel, channel, EventChannel, eventChannel } from 'redux-saga';
 import { call, cancelled, fork, put, select, take, takeEvery } from 'redux-saga/effects';
 import { AppState, ObservedTx, TxReceipt, TxStatus, ZilSwapV2 } from 'zilswap-sdk';
-import { ZiloAppState } from 'zilswap-sdk/lib/zilo';
 
-import { Blockchain, CarbonSDK } from 'carbon-js-sdk';
-import { Token as CarbonToken } from 'carbon-js-sdk/lib/codec';
-import { blockchainForChainId } from 'carbon-js-sdk/lib/util/blockchain';
-import {
-  ConnectedWallet,
-  WalletConnectType,
-  connectWalletBoltX,
-  connectWalletZilPay,
-} from 'core/wallet';
-import { ZILO_DATA } from 'core/zilo/constants';
-import { ZilswapConnector, toBech32Address } from 'core/zilswap';
-import { ZWAP_TOKEN_CONTRACT } from 'core/zilswap/constants';
-import { logger } from 'core/utilities';
-import { getConnectedZilPay } from 'core/utilities/zilpay';
-import {
-  PoolTransaction,
-  PoolTransactionResult,
-  ZAPStats,
-} from 'core/utilities/zap-stats';
-import { ConnectedBridgeWallet } from 'core/wallet/ConnectedBridgeWallet';
-import { getConnectedBoltX } from 'core/utilities/boltx';
-import { netZilToCarbon, SimpleMap } from 'app/utils';
-import { BridgeableToken } from 'app/store/bridge/types';
-import { detachedToast } from 'app/utils/useToaster';
-import {
-  BRIDGEABLE_WRAPPED_DENOMS,
-  BoltXNetworkMap,
-  RPCEndpoints,
-  ZIL_ADDRESS,
-  WZIL_TOKEN_CONTRACT,
-} from 'app/utils/constants';
+import { actions } from 'app/store';
+import { ChainInitAction } from 'app/store/blockchain/actions';
+import { StatsActionTypes } from 'app/store/stats/actions';
 import { TokenInfo, Transaction } from 'app/store/types';
 import {
   BridgeWalletAction,
   WalletAction,
-  WalletActionTypes,
+  WalletActionTypes
 } from 'app/store/wallet/actions';
-import { ChainInitAction } from 'app/store/blockchain/actions';
-import { actions } from 'app/store';
-import { StatsActionTypes } from 'app/store/stats/actions';
+import { SimpleMap } from 'app/utils';
+import {
+  BoltXNetworkMap,
+  RPCEndpoints, WZIL_TOKEN_CONTRACT, ZIL_ADDRESS
+} from 'app/utils/constants';
+import { detachedToast } from 'app/utils/useToaster';
+import { Blockchain } from 'carbon-js-sdk';
+import { logger } from 'core/utilities';
+import { getConnectedBoltX } from 'core/utilities/boltx';
+import {
+  PoolTransaction,
+  PoolTransactionResult,
+  ZAPStats
+} from 'core/utilities/zap-stats';
+import { getConnectedZilPay } from 'core/utilities/zilpay';
+import {
+  ConnectedWallet, connectWalletBoltX,
+  connectWalletZilPay, WalletConnectType
+} from 'core/wallet';
+import { ConnectedBridgeWallet } from 'core/wallet/ConnectedBridgeWallet';
+import { fromBech32Address, ZilswapConnector } from 'core/zilswap';
+import { ZWAP_TOKEN_CONTRACT } from 'core/zilswap/constants';
 import { getBlockchain, getTransactions, getWallet } from '../selectors';
 
 const getProviderOrKeyFromWallet = (wallet: ConnectedWallet | null) => {
@@ -188,84 +178,10 @@ function* txObserved(payload: TxObservedPayload) {
   }
 }
 
-type StateChangeObservedPayload = { state: ZiloAppState };
-const ziloStateObserver = (channel: Channel<StateChangeObservedPayload>) => {
-  return (state: ZiloAppState) => {
-    logger('zilo state changed observed', state);
-    channel.put({ state });
-  };
-};
-
+type StateChangeObservedPayload = {  };
 function* stateChangeObserved(payload: StateChangeObservedPayload) {
-  logger('zilo state change action');
-  yield put(
-    actions.Blockchain.setZiloState(
-      payload.state.contractInit!._this_address,
-      payload.state
-    )
-  );
+
 }
-
-interface BridgeMappingResult {
-  [Blockchain.Zilliqa]: BridgeableToken[];
-  [Blockchain.Ethereum]: BridgeableToken[];
-}
-
-const addMapping = (
-  r: BridgeMappingResult,
-  a: CarbonToken,
-  b: CarbonToken,
-  sourceChain: Blockchain
-) => {
-  const aChain = blockchainForChainId(a.chainId.toNumber()) as
-    | Blockchain.Zilliqa
-    | Blockchain.Ethereum;
-  const bChain = blockchainForChainId(b.chainId.toNumber()) as
-    | Blockchain.Zilliqa
-    | Blockchain.Ethereum;
-  r[aChain].push({
-    blockchain: aChain,
-    tokenAddress: a.tokenAddress.toLowerCase(),
-    lockproxyAddress: a.bridgeAddress,
-    decimals: a.decimals.toNumber(),
-    denom: a.denom,
-    tokenId: a.id,
-    toBlockchain: bChain,
-    toTokenAddress: b.tokenAddress.toLowerCase(),
-    toDecimals: b.decimals.toNumber(),
-    toDenom: b.denom,
-    toTokenId: b.id,
-    balDenom: sourceChain === aChain ? a.denom : b.denom,
-  });
-};
-
-const addToken = (r: SimpleMap<TokenInfo>, t: CarbonToken) => {
-  const blockchain = blockchainForChainId(t.chainId.toNumber());
-  const address =
-    blockchain === Blockchain.Zilliqa
-      ? toBech32Address(t.tokenAddress)
-      : `0x${t.tokenAddress.toLowerCase()}`;
-  if (r[address]) {
-    if (!r[address].registered) r[address].registered = true;
-    return;
-  }
-  r[address] = {
-    initialized: false,
-    registered: true,
-    whitelisted: false,
-    isWzil: false,
-    isZil: false,
-    isZwap: false,
-    address,
-    decimals: t.decimals.toNumber(),
-    symbol: t.symbol,
-    name: `${t.name} (${t.denom})`,
-    balance: undefined,
-    allowances: {},
-    pool: undefined,
-    blockchain,
-  };
-};
 
 function* initialize(
   action: ChainInitAction,
@@ -274,7 +190,6 @@ function* initialize(
 ) {
   let sdk: ZilSwapV2 | null = null;
   try {
-    const { wallet: prevWallet } = getWallet(yield select());
     yield put(actions.Layout.addBackgroundLoading('initChain', 'INIT_CHAIN'));
     yield put(actions.Wallet.update({ wallet: null }));
 
@@ -283,7 +198,7 @@ function* initialize(
     const { observingTxs } = getTransactions(yield select());
     const { network: prevNetwork } = getBlockchain(yield select());
 
-    logger('init chain zilswap sdk');
+    logger('init chain zilswap sdk', network, providerOrKey);
     sdk = new ZilSwapV2(network, providerOrKey ?? undefined, {
       rpcEndpoint: RPCEndpoints[network],
     });
@@ -291,102 +206,52 @@ function* initialize(
     yield call([sdk, sdk.initialize], txObserver(txChannel), observingTxs);
     logger('zilswap sdk initialized');
 
-    for (let i = 0; i < ZILO_DATA[network].length; ++i) {
-      const data = ZILO_DATA[network][i];
-      if (data.comingSoon) continue;
-
-      yield call(
-        [sdk, sdk.registerZilo],
-        data.contractAddress,
-        ziloStateObserver(stateChannel)
-      );
-      logger('zilo sdk initialized');
-    }
+    console.log("xx sdk", sdk)
     ZilswapConnector.setSDK(sdk);
 
     logger('init chain load tokens');
     // load tokens
     const appState: AppState = yield call([sdk, sdk.getAppState]);
-    const zilswapTokens = appState.tokens;
-    const tokens: SimpleMap<TokenInfo> = Object.keys(zilswapTokens!).reduce(
-      (acc, addr) => {
-        const tkn = zilswapTokens![addr];
-        const isHuny = tkn!.address === 'zil1m3m5jqqcaemtefnlk795qpw59daukra8prc43e';
-        acc[tkn!.address] = {
+    const { pools: allPools, tokens: zilswapTokens } = appState;
+    const tokens: SimpleMap<TokenInfo> = Object.values(zilswapTokens!).reduce(
+      (acc, tkn) => {
+        const pools = Object.values(allPools).filter(p => (p.token0Address === tkn.address || p.token1Address === tkn.address));
+        const byStr20Address = fromBech32Address(tkn.address).toLowerCase();
+        const isPoolToken = !!allPools[byStr20Address];
+        const isHuny = tkn.address === 'zil1m3m5jqqcaemtefnlk795qpw59daukra8prc43e';
+        const token: TokenInfo = {
           initialized: false,
-          // registered: tkn!.registered,
-          // whitelisted: tkn!.whitelisted,
-          registered: false,
+          // registered: tkn.registered,
+          // whitelisted: tkn.whitelisted,
+          registered: true,
           whitelisted: false,
-          isWzil: tkn!.address === WZIL_TOKEN_CONTRACT[network],
-          isZil: tkn!.address === ZIL_ADDRESS,
-          isZwap: tkn!.address === ZWAP_TOKEN_CONTRACT[network],
-          address: tkn!.address,
-          decimals: tkn!.decimals,
-          symbol: isHuny ? tkn!.symbol.toUpperCase() : tkn!.symbol,
-          name: tkn!.name,
+          isWzil: tkn.address === WZIL_TOKEN_CONTRACT[network],
+          isZil: tkn.address === ZIL_ADDRESS,
+          isZwap: tkn.address === ZWAP_TOKEN_CONTRACT[network],
+          isPoolToken,
+          address: tkn.address,
+          hash: byStr20Address,
+          decimals: tkn.decimals,
+          symbol: isHuny ? tkn.symbol.toUpperCase() : tkn.symbol,
+          name: tkn.name,
           balance: undefined,
           allowances: {},
-          pool: ZilswapConnector!.getTokenPools(tkn!.address) || undefined,
+          pool: pools?.[0],
+          pools,
           blockchain: Blockchain.Zilliqa,
         };
+        acc[tkn.address] = token;
         return acc;
       },
       {} as SimpleMap<TokenInfo>
     );
 
-    const bridgeTokenResult: BridgeMappingResult = {
-      [Blockchain.Zilliqa]: [],
-      [Blockchain.Ethereum]: [],
-    };
-
-    try {
-      // load wrapper mappings and eth tokens by fetching bridge list from carbon
-      const carbonSdk: CarbonSDK = yield call(CarbonSDK.instance, {
-        network: netZilToCarbon(network),
-      });
-      const mappings = carbonSdk.token.wrapperMap;
-      const carbonTokens: CarbonToken[] = Object.values(carbonSdk.token.tokens);
-      const bridgeableDenoms = BRIDGEABLE_WRAPPED_DENOMS[network];
-      Object.entries(mappings).forEach(([wrappedDenom, sourceDenom]) => {
-        if (!bridgeableDenoms.includes(wrappedDenom)) {
-          return;
-        }
-
-        const wrappedToken = carbonTokens.find(d => d.denom === wrappedDenom)!;
-        const sourceToken = carbonTokens.find(d => d.denom === sourceDenom)!;
-
-        const wrappedChain = blockchainForChainId(wrappedToken.chainId.toNumber());
-        const sourceChain = blockchainForChainId(sourceToken.chainId.toNumber());
-
-        if (
-          (wrappedChain !== Blockchain.Zilliqa && wrappedChain !== Blockchain.Ethereum) ||
-          (sourceChain !== Blockchain.Zilliqa && sourceChain !== Blockchain.Ethereum)
-        ) {
-          return;
-        }
-        addToken(tokens, sourceToken);
-        addToken(tokens, wrappedToken);
-        addMapping(bridgeTokenResult, wrappedToken, sourceToken, sourceChain);
-        addMapping(bridgeTokenResult, sourceToken, wrappedToken, sourceChain);
-      });
-    } catch (error) {
-      console.error('could not load bridge tokens');
-      console.error(error);
-    }
-
-    logger('init chain set tokens');
-    yield put(actions.Bridge.setTokens(bridgeTokenResult));
+    logger('init chain set tokens', tokens);
     yield put(actions.Token.init({ tokens }));
     yield put(actions.Wallet.update({ wallet }));
 
-    if (wallet?.addressInfo.bech32 !== prevWallet?.addressInfo.bech32) {
-      yield put(actions.MarketPlace.removeAccessToken());
-    }
-
     if (network !== prevNetwork) {
       yield put(actions.Blockchain.setNetwork(network));
-      yield put(actions.MarketPlace.removeAccessToken());
     }
 
     yield put(actions.Stats.reloadPoolTx());
@@ -447,6 +312,7 @@ function* watchInitialize() {
   try {
     yield takeEvery(txChannel, txObserved);
     yield takeEvery(stateChannel, stateChangeObserved);
+
     while (true) {
       const action: ChainInitAction = yield take(
         actions.Blockchain.BlockchainActionTypes.CHAIN_INIT

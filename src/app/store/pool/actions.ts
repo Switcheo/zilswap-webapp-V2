@@ -1,4 +1,5 @@
-import { PoolFormState, PoolSelectProps } from "./types";
+import { Network, Pool } from "zilswap-sdk";
+import { PoolFormState } from "./types";
 
 export enum PoolActionTypes {
   CLEAR = "POOL_CLEAR",
@@ -11,6 +12,11 @@ export function clear() {
     type: PoolActionTypes.CLEAR,
   }
 }
+
+export interface PoolSelectProps {
+  pool: Pool | null;
+  network: Network | undefined;
+};
 
 export function select(payload: PoolSelectProps) {
   return {
