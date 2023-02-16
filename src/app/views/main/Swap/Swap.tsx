@@ -65,8 +65,8 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     const inAmountUnitless = inAmount.shiftedBy(inToken.decimals);
     const { swapPath, expectedAmount } = ZilswapConnector.findSwapPath(inToken.hash, outToken.hash, inAmountUnitless);
 
-    const [pool, reversed] = swapPath?.slice(-1)?.[0] ?? [];
-    const outReserves = reversed ? pool?.token0Reserve : pool?.token1Reserve;
+    const [pool, isSameOrder] = swapPath?.slice(-1)?.[0] ?? [];
+    const outReserves = isSameOrder ? pool?.token1Reserve : pool?.token0Reserve;
 
     let isInsufficientReserves = false;
     if (outReserves?.lt(expectedAmount))
@@ -511,7 +511,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             onCurrencyChange={onOutCurrencyChange} />
 
           <Typography className={classes.errorMessage} color="error">{error?.message || errorApproveTx?.message}</Typography>
-          {swapFormState.isInsufficientReserves && (
+          {isInsufficientReserves && (
             <Typography color="error">Pool reserve is too small to fulfill desired output.</Typography>
           )}
 
