@@ -504,14 +504,14 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             label="To"
             token={outToken || null}
             amount={formState.outAmount}
-            disabled={!outToken}
+            disabled
             dialogOpts={{ noPool: true, wrapZil: inToken?.isWzil }}
             onEditorBlur={onDoneEditing}
             onAmountChange={onOutAmountChange}
             onCurrencyChange={onOutCurrencyChange} />
 
           <Typography className={classes.errorMessage} color="error">{error?.message || errorApproveTx?.message}</Typography>
-          {swapFormState.isInsufficientReserves && (
+          {isInsufficientReserves && (
             <Typography color="error">Pool reserve is too small to fulfill desired output.</Typography>
           )}
 
@@ -530,7 +530,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             </FancyButton>
 
           )}
-          <SwapDetail token={outToken || undefined} />
+          <SwapDetail path={path} />
         </Box>
       )}
       <ShowAdvanced showAdvanced={layoutState.showAdvancedSetting} />

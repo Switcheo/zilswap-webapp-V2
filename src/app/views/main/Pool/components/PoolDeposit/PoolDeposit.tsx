@@ -198,30 +198,27 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
   const onAmountChange = (token: TokenInfo, input: string = "0") => {
     const tokenAmountRaw = bnOrZero(input).shiftedBy(token.decimals).dp(0);
     const exactIn = token === tokenA;
-    const otherToken = exactIn ? tokenB : tokenA;
 
     let otherAmountRaw: BigNumber | null = null;
-    if (existingPool) {
-      const poolRatio = ZilswapConnector.getPoolRatio(existingPool.pool, poolReversed ? "1to0" : "0to1");
-      otherAmountRaw = tokenAmountRaw.times(poolRatio).dp(0);
+    if (existingPool && existingPool.pool.token0Reserve.gt(0)) {
+      const poolRatio = ZilswapConnector.getPoolRatio(existingPool.pool, token === token0 ? "1to0" : "0to1");
+      otherAmountRaw = tokenAmountRaw.times(poolRatio);
     }
 
     if (exactIn) {
-      otherAmountRaw = formState.tokenBAmount;
       setFormState(state => ({
         ...state,
         exactIn,
         tokenAInput: input,
         tokenAAmount: tokenAmountRaw,
-        tokenBInput: (otherAmountRaw ?? state.tokenBAmount).shiftedBy(-otherToken?.decimals ?? 0).toString(10),
+        tokenBInput: (otherAmountRaw ?? state.tokenBAmount).shiftedBy(-tokenB?.decimals ?? 0).toString(10),
         tokenBAmount: otherAmountRaw ?? state.tokenBAmount,
       }));
     } else {
-      otherAmountRaw = formState.tokenAAmount;
       setFormState(state => ({
         ...state,
         exactIn,
-        tokenAInput: (otherAmountRaw ?? state.tokenAAmount).shiftedBy(-otherToken?.decimals ?? 0).toString(10),
+        tokenAInput: (otherAmountRaw ?? state.tokenAAmount).shiftedBy(-tokenA?.decimals ?? 0).toString(10),
         tokenAAmount: otherAmountRaw ?? state.tokenAAmount,
         tokenBInput: input,
         tokenBAmount: tokenAmountRaw,
@@ -229,8 +226,8 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
     }
 
     dispatch(actions.Pool.update({
-      token0Amount: token0 === token ? tokenAmountRaw : otherAmountRaw,
-      token1Amount: token0 === token ? otherAmountRaw : tokenAmountRaw,
+      token0Amount: (token0 === token ? tokenAmountRaw : otherAmountRaw) ?? undefined,
+      token1Amount: (token0 === token ? otherAmountRaw : tokenAmountRaw) ?? undefined,
     }))
   };
 
@@ -245,9 +242,6 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
     if (!tokenA || !tokenB || !formState.ampValue) return;
     clearApproveError();
     clearPoolError();
-
-    console.log(ZilswapConnector.getSDK().zilliqa);
-
 
     runCreatePool(async () => {
       const observedTx = await ZilswapConnector.deployPool(tokenA.address, tokenB.address, formState.ampValue);

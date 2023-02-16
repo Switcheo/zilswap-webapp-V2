@@ -206,7 +206,6 @@ function* initialize(
     yield call([sdk, sdk.initialize], txObserver(txChannel), observingTxs);
     logger('zilswap sdk initialized');
 
-    console.log("xx sdk", sdk)
     ZilswapConnector.setSDK(sdk);
 
     logger('init chain load tokens');

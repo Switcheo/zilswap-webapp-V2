@@ -1,18 +1,13 @@
-import { Box, BoxProps } from "@material-ui/core";
+import { Box, BoxProps, Typography } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
-import SwapHorizontalCircleIcon from '@material-ui/icons/SwapHorizRounded';
-import { HelpInfo, KeyValueDisplay } from "app/components";
-import { RootState, SwapFormState, TokenInfo } from "app/store/types";
 import { AppTheme } from "app/theme/types";
-import { useMoneyFormatter } from "app/utils";
-import { BIG_ZERO } from "app/utils/constants";
 import cls from "classnames";
-import React, { useState } from "react";
-import { useSelector } from "react-redux";
+import React from "react";
+import { Pool } from "zilswap-sdk";
 
 
 export interface SwapDetailProps extends BoxProps {
-  token?: TokenInfo;
+  path?: [Pool, boolean][] | null | undefined;
 };
 
 const useStyles = makeStyles((theme: AppTheme) => ({
@@ -52,74 +47,80 @@ const useStyles = makeStyles((theme: AppTheme) => ({
   },
 }));
 const SwapDetail: React.FC<SwapDetailProps> = (props: SwapDetailProps) => {
-  const { children, className, token, ...rest } = props;
+  const { children, className, path, ...rest } = props;
   const classes = useStyles();
-  const { inAmount, inToken, outAmount, outToken, expectedExchangeRate, expectedSlippage } = useSelector<RootState, SwapFormState>(store => store.swap);
-  const moneyFormat = useMoneyFormatter({ maxFractionDigits: 5, showCurrency: true });
-  const [reversedRate, setReversedRate] = useState(false);
-  
-  const getMinimumValue = () => {
-    if (outAmount.isEqualTo(0)) return <span className={classes.textWrapper}>-</span>;
+  // const { inAmount, inToken, outAmount, outToken, expectedExchangeRate, expectedSlippage } = useSelector<RootState, SwapFormState>(store => store.swap);
+  // const moneyFormat = useMoneyFormatter({ maxFractionDigits: 5, showCurrency: true });
+  // const [reversedRate, setReversedRate] = useState(false);
 
-    return (
-      <span className={classes.textWrapper}><span className={classes.textColoured}>{moneyFormat(outAmount, { maxFractionDigits: outToken?.decimals })}</span> {outToken?.symbol}</span>
-    )
-  };
+  // const getMinimumValue = () => {
+  //   if (outAmount.isEqualTo(0)) return <span className={classes.textWrapper}>-</span>;
 
-  const getPriceImpact = () => {
-    if (!expectedSlippage) return <span className={classes.textWrapper}>-</span>;
+  //   return (
+  //     <span className={classes.textWrapper}><span className={classes.textColoured}>{moneyFormat(outAmount, { maxFractionDigits: outToken?.decimals })}</span> {outToken?.symbol}</span>
+  //   )
+  // };
 
-    return (
-      <span className={classes.textWrapper}><span className={classes.textColoured}>{moneyFormat((expectedSlippage || 0) * 100)}%</span></span>
-    )
-  }
+  // const getPriceImpact = () => {
+  //   if (!expectedSlippage) return <span className={classes.textWrapper}>-</span>;
 
-  const getFeeValue = () => {
-    if (inAmount.isEqualTo(0)) return <span className={classes.textWrapper}>-</span>;
+  //   return (
+  //     <span className={classes.textWrapper}><span className={classes.textColoured}>{moneyFormat((expectedSlippage || 0) * 100)}%</span></span>
+  //   )
+  // }
 
-    return (
-      <span className={classes.textWrapper}><span className={classes.textColoured}>≈ {moneyFormat(inAmount.multipliedBy(0.003))} {inToken?.symbol}</span></span>
-    )
-  };
+  // const getFeeValue = () => {
+  //   if (inAmount.isEqualTo(0)) return <span className={classes.textWrapper}>-</span>;
 
-  const getExchangeRateValue = () => {
-    if (!(inToken && outToken)) return <span className={classes.textWrapper}>-</span>;
+  //   return (
+  //     <span className={classes.textWrapper}><span className={classes.textColoured}>≈ {moneyFormat(inAmount.multipliedBy(0.003))} {inToken?.symbol}</span></span>
+  //   )
+  // };
 
-    let exchangeRate = expectedExchangeRate || BIG_ZERO;
+  // const getExchangeRateValue = () => {
+  //   if (!(inToken && outToken)) return <span className={classes.textWrapper}>-</span>;
 
-    let src = inToken, dst = outToken;
+  //   let exchangeRate = expectedExchangeRate || BIG_ZERO;
 
-    if (reversedRate) {
-      dst = inToken;
-      src = outToken;
-    }
+  //   let src = inToken, dst = outToken;
 
-    // if (exchangeRate.eq(0)) {
-    //   try {
-    //     const rateResult = ZilswapConnector.getExchangeRate({
-    //       amount: BIG_ONE.shiftedBy(src!.decimals),
-    //       exactOf: reversedRate ? "out" : "in",
-    //       tokenInID: inToken!.address,
-    //       tokenOutID: outToken!.address,
-    //     });
-    //     if (!rateResult.expectedAmount.isNaN() && !rateResult.expectedAmount.isNegative())
-    //       exchangeRate = rateResult.expectedAmount.shiftedBy(-dst!.decimals).pow(reversedRate ? -1 : 1);
-    //   } catch (e) {
-    //     exchangeRate = BIG_ZERO;
-    //   }
-    // }
-    
-    const shouldReverseRate = reversedRate && !exchangeRate.isZero();
-    
+  //   if (reversedRate) {
+  //     dst = inToken;
+  //     src = outToken;
+  //   }
 
-    return (
-      <span className={classes.textWrapper}>1 {src?.symbol || ""} = <span className={classes.textColoured}>{moneyFormat(exchangeRate.pow(shouldReverseRate ? -1 : 1))}</span> {dst?.symbol}</span>
-    )
-  };
+  //   // if (exchangeRate.eq(0)) {
+  //   //   try {
+  //   //     const rateResult = ZilswapConnector.getExchangeRate({
+  //   //       amount: BIG_ONE.shiftedBy(src!.decimals),
+  //   //       exactOf: reversedRate ? "out" : "in",
+  //   //       tokenInID: inToken!.address,
+  //   //       tokenOutID: outToken!.address,
+  //   //     });
+  //   //     if (!rateResult.expectedAmount.isNaN() && !rateResult.expectedAmount.isNegative())
+  //   //       exchangeRate = rateResult.expectedAmount.shiftedBy(-dst!.decimals).pow(reversedRate ? -1 : 1);
+  //   //   } catch (e) {
+  //   //     exchangeRate = BIG_ZERO;
+  //   //   }
+  //   // }
+
+  //   const shouldReverseRate = reversedRate && !exchangeRate.isZero();
+
+
+  //   return (
+  //     <span className={classes.textWrapper}>1 {src?.symbol || ""} = <span className={classes.textColoured}>{moneyFormat(exchangeRate.pow(shouldReverseRate ? -1 : 1))}</span> {dst?.symbol}</span>
+  //   )
+  // };
+
+  if (!path?.length) return null;
 
   return (
     <Box {...rest} className={cls(classes.root, className)}>
-      <KeyValueDisplay kkey={"Price"} mb="8px">
+      <Typography variant="h5">Swap Path</Typography>
+      {path.map(([pool]) => (
+        <Typography variant="body1">{pool.poolAddress}</Typography>
+      ))}
+      {/* <KeyValueDisplay kkey={"Price"} mb="8px">
         {getExchangeRateValue()}
         { " " }
         <SwapHorizontalCircleIcon onClick={() => setReversedRate(!reversedRate)}
@@ -129,7 +130,7 @@ const SwapDetail: React.FC<SwapDetailProps> = (props: SwapDetailProps) => {
       </KeyValueDisplay>              
       <KeyValueDisplay kkey={"Min. Received"} mb="8px">{getMinimumValue()} <HelpInfo className={classes.helpInfo} placement="top" title={<span>Minimum amount you will receive for this swap.<br />Note: Your transaction will be reverted if there is large, unfavorable price movements prior to confirmation.</span>} /></KeyValueDisplay>
       <KeyValueDisplay kkey={"Price Impact"} mb="8px">{getPriceImpact()} <HelpInfo className={classes.helpInfo} placement="top" title="Difference between the market price and estimated price due to amount swapped." /></KeyValueDisplay>
-      <KeyValueDisplay kkey={"Estimated Fee"} mb="8px">{getFeeValue()} <HelpInfo className={classes.helpInfo} placement="top" title="Liquidity providers will receive 0.3% of this trade." /></KeyValueDisplay>
+      <KeyValueDisplay kkey={"Estimated Fee"} mb="8px">{getFeeValue()} <HelpInfo className={classes.helpInfo} placement="top" title="Liquidity providers will receive 0.3% of this trade." /></KeyValueDisplay> */}
     </Box>
   );
 };
