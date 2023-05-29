@@ -425,6 +425,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
         tokenAmount: tokenAmount.shiftedBy(swapFormState.inToken!.decimals),
         tokenID: tokenAddress,
         spenderAddress: "",
+        network,
       });
 
       if (!observedTx)

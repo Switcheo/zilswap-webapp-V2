@@ -1,7 +1,7 @@
 import { BIG_ZERO } from "app/utils/constants";
 import BigNumber from "bignumber.js";
 import { ObservedTx, Pool, TokenDetails, ZilSwapV2 } from "zilswap-sdk";
-import { Network } from "zilswap-sdk/lib/constants";
+import { Network, ZILSWAPV2_CONTRACTS } from "zilswap-sdk/lib/constants";
 
 import { logger } from "core/utilities";
 import { ConnectedWallet } from "core/wallet/ConnectedWallet";
@@ -30,7 +30,8 @@ export interface ExchangeRateQueryProps extends ConnectorCallProps {
 export interface ApproveTxProps {
   tokenID: string;
   tokenAmount: BigNumber;
-  spenderAddress: string
+  spenderAddress: string;
+  network: Network;
 };
 
 export interface AddLiquidityProps {
@@ -171,7 +172,8 @@ export class ZilswapConnector {
     logger(props.tokenID);
     logger(props.tokenAmount.toString());
     logger(props.spenderAddress);
-    const observedTx = await zilswapV2.approveTokenTransferIfRequired(props.tokenID, props.tokenAmount, props.spenderAddress!);
+    const spenderAddress = props.spenderAddress ? props.spenderAddress : ZILSWAPV2_CONTRACTS[props.network].toLowerCase()
+    const observedTx = await zilswapV2.approveTokenTransferIfRequired(props.tokenID, props.tokenAmount, spenderAddress);
     if (observedTx)
       handleObservedTx(observedTx);
 
