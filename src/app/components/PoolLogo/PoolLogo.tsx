@@ -4,9 +4,10 @@ import { makeStyles } from "@material-ui/core/styles";
 import cls from "classnames";
 import { AppTheme } from "app/theme/types";
 import CurrencyLogo from "../CurrencyLogo";
+import { TokenInfo } from "app/store/types";
 
 interface Props extends BoxProps {
-  pair: [string, string];
+  pair: [TokenInfo, TokenInfo];
   tokenAddress: string;
   noOverlap?: boolean;
   noBg?: boolean;
@@ -33,8 +34,8 @@ const PoolLogo: React.FC<Props> = (props: Props) => {
 
   return (
     <Box {...rest} className={cls(classes.root, className)}>
-      <CurrencyLogo className={cls({ [classes.poolIcon]: !noBg, [classes.baseIcon]: !noOverlap })} currency={base} />
-      <CurrencyLogo className={cls({ [classes.poolIcon]: !noBg })} currency={quote} address={tokenAddress} />
+      <CurrencyLogo className={cls({ [classes.poolIcon]: !noBg, [classes.baseIcon]: !noOverlap })} currency={base.symbol} address={base.address} />
+      <CurrencyLogo className={cls({ [classes.poolIcon]: !noBg })} currency={quote.symbol} address={quote.address} />
     </Box>
   );
 };
