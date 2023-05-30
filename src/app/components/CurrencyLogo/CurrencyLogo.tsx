@@ -3,7 +3,7 @@ import { toBech32Address } from '@zilliqa-js/crypto';
 import { AppTheme } from 'app/theme/types';
 import { useNetwork } from 'app/utils';
 import cls from 'classnames';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Network } from 'zilswap-sdk/lib/constants';
 import legacySvg from './legacy-zil.svg';
 
@@ -43,6 +43,10 @@ const CurrencyLogo = (props: any) => {
   const urlSuffix = theme.palette.type === 'dark' ? '?t=dark' : '';
   const isZil = typeof currency === 'string' && ['eZIL', 'ZIL'].includes(currency);
   let tokenIconUrl: string;
+
+  useEffect(() => {
+    setError(false)
+  }, [address])
 
   const logoAddress = useMemo(() => {
     return address;
