@@ -181,6 +181,7 @@ const PoolWithdraw: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any
         tokenAmount: approveAmount,
         tokenID: poolToken.address,
         spenderAddress: byte20ContractAddress,
+        network,
       });
       const walletObservedTx: WalletObservedTx = {
         ...observedTx!,

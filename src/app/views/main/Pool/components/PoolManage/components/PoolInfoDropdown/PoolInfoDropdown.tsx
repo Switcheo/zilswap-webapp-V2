@@ -81,7 +81,7 @@ const PoolInfoDropdown: React.FC<Props> = (props: Props) => {
     <Box {...rest} className={cls(classes.root, className)}>
       <Button variant="text" fullWidth className={classes.buttonWrapper} onClick={onToggleDropdown} disableRipple>
         <Box flex={1} display="flex" alignItems="center">
-          <PoolLogo pair={[token0.symbol, token1.symbol]} tokenAddress={token.address} />
+          <PoolLogo pair={[token0, token1]} tokenAddress={token.address} />
           <Text marginLeft={1}>{token0.symbol} - {token1.symbol}</Text>
           <Box flex={1} />
           {active && <ArrowDropUpRounded className={classes.arrowIcon} />}

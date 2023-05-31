@@ -172,6 +172,8 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
     }
 
     const [tokenA, tokenB] = index === "0" ? [token, otherToken] : [otherToken, token];
+    const tokenADecimals = tokenA ? -tokenA.decimals : 0
+    const tokenBDecimals = tokenB ? -tokenB.decimals : 0
 
     if (poolInfo) {
       const poolRatio = ZilswapConnector.getPoolRatio(poolInfo.pool, poolReversed ? "1to0" : "0to1");
@@ -188,8 +190,8 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
     setFormState(state => ({
       ...state,
       [key]: token.address,
-      tokenAInput: tokenAAmount.shiftedBy(-tokenA.decimals).toString(10),
-      tokenBInput: tokenBAmount.shiftedBy(-tokenB.decimals).toString(10),
+      tokenAInput: tokenAAmount.shiftedBy(tokenADecimals).toString(10),
+      tokenBInput: tokenBAmount.shiftedBy(tokenBDecimals).toString(10),
       tokenAAmount,
       tokenBAmount,
     }));
@@ -198,6 +200,8 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
   const onAmountChange = (token: TokenInfo, input: string = "0") => {
     const tokenAmountRaw = bnOrZero(input).shiftedBy(token.decimals).dp(0);
     const exactIn = token === tokenA;
+    const tokenADecimals = tokenA ? -tokenA.decimals : 0
+    const tokenBDecimals = tokenB ? -tokenB?.decimals : 0
 
     let otherAmountRaw: BigNumber | null = null;
     if (existingPool && existingPool.pool.token0Reserve.gt(0)) {
@@ -211,15 +215,15 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
         exactIn,
         tokenAInput: input,
         tokenAAmount: tokenAmountRaw,
-        tokenBInput: (otherAmountRaw ?? state.tokenBAmount).shiftedBy(-tokenB?.decimals ?? 0).toString(10),
-        tokenBAmount: otherAmountRaw ?? state.tokenBAmount,
+        tokenBInput: bnOrZero(otherAmountRaw ?? state.tokenBAmount).shiftedBy(tokenBDecimals).toString(10),
+        tokenBAmount: bnOrZero(otherAmountRaw ?? state.tokenBAmount),
       }));
     } else {
       setFormState(state => ({
         ...state,
         exactIn,
-        tokenAInput: (otherAmountRaw ?? state.tokenAAmount).shiftedBy(-tokenA?.decimals ?? 0).toString(10),
-        tokenAAmount: otherAmountRaw ?? state.tokenAAmount,
+        tokenAInput: bnOrZero(otherAmountRaw ?? state.tokenAAmount).shiftedBy(tokenADecimals).toString(10),
+        tokenAAmount: bnOrZero(otherAmountRaw ?? state.tokenAAmount),
         tokenBInput: input,
         tokenBAmount: tokenAmountRaw,
       }));
@@ -327,6 +331,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
         tokenAmount: approveAmount,
         tokenID: token.address,
         spenderAddress: byte20ContractAddress,
+        network,
       });
       const walletObservedTx: WalletObservedTx = {
         ...observedTx!,
@@ -342,10 +347,12 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
   };
 
   const onDoneEditing = () => {
+    const tokenADecimals = tokenA ? -tokenA.decimals : 0
+    const tokenBDecimals = tokenB ? -tokenB.decimals : 0
     setFormState(state => ({
       ...state,
-      tokenAInput: state.tokenAAmount.shiftedBy(-tokenA.decimals).toString(10),
-      tokenBInput: state.tokenBAmount.shiftedBy(-tokenB.decimals).toString(10),
+      tokenAInput: state.tokenAAmount.shiftedBy(tokenADecimals).toString(10),
+      tokenBInput: state.tokenBAmount.shiftedBy(tokenBDecimals).toString(10),
     }));
 
     const { tokenAAmount, tokenBAmount } = formState;

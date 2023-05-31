@@ -1,13 +1,18 @@
 import { Box, BoxProps, Typography } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
+import { CurrencyLogo } from "app/components";
 import { AppTheme } from "app/theme/types";
 import cls from "classnames";
-import React from "react";
-import { Pool } from "zilswap-sdk";
+import React, { useMemo } from "react";
+import { Pool, TokenDetails } from "zilswap-sdk";
+import ArrowForwardIosIcon from '@material-ui/icons/ArrowForwardIos';
+import { ZilswapConnector } from "core/zilswap/connector";
+import { fromBech32Address } from "@zilliqa-js/zilliqa";
 
 
 export interface SwapDetailProps extends BoxProps {
   path?: [Pool, boolean][] | null | undefined;
+  pair: [string, string];
 };
 
 const useStyles = makeStyles((theme: AppTheme) => ({
@@ -45,10 +50,60 @@ const useStyles = makeStyles((theme: AppTheme) => ({
   activeSwitchIcon: {
     transform: "rotate(180deg)",
   },
+  routeBox: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  rightArrowIcon: {
+    fontSize: 15,
+    margin: "0 5px",
+  },
+  currencyLogo: {
+    marginRight: "2px",
+  },
 }));
 const SwapDetail: React.FC<SwapDetailProps> = (props: SwapDetailProps) => {
-  const { children, className, path, ...rest } = props;
+  const { children, className, path, pair, ...rest } = props;
+  const [inToken, outToken] = pair
   const classes = useStyles();
+
+  const route = useMemo(() => {
+    if (!path || !pair) {
+      return [];
+    }
+
+    const tokens: (TokenDetails | undefined)[] = [];
+    let middleToken = ""
+
+    path.forEach(([pool]) => {
+      const token0 = pool.token0Address;
+      const token1 = pool.token1Address;
+
+      if (token0 !== inToken && token0 !== outToken) {
+        middleToken = token0
+      }
+      if (token1 !== inToken && token1 !== outToken) {
+        middleToken = token1
+      }
+    });
+
+    const inTokenDetails = ZilswapConnector.getToken(fromBech32Address(inToken).toLowerCase())
+    const outTokenDetails = ZilswapConnector.getToken(fromBech32Address(outToken).toLowerCase())
+
+    if (middleToken === "") {
+      tokens.push(inTokenDetails)
+      tokens.push(outTokenDetails)
+    } else {
+      const middleTokenDetails = ZilswapConnector.getToken(fromBech32Address(middleToken).toLowerCase())
+      tokens.push(inTokenDetails)
+      tokens.push(middleTokenDetails)
+      tokens.push(outTokenDetails)
+    }
+
+    return tokens;
+  }, [pair, path, ZilswapConnector]); // eslint-disable-line
+
   // const { inAmount, inToken, outAmount, outToken, expectedExchangeRate, expectedSlippage } = useSelector<RootState, SwapFormState>(store => store.swap);
   // const moneyFormat = useMoneyFormatter({ maxFractionDigits: 5, showCurrency: true });
   // const [reversedRate, setReversedRate] = useState(false);
@@ -116,10 +171,24 @@ const SwapDetail: React.FC<SwapDetailProps> = (props: SwapDetailProps) => {
 
   return (
     <Box {...rest} className={cls(classes.root, className)}>
-      <Typography variant="h5">Swap Path</Typography>
-      {path.map(([pool]) => (
-        <Typography variant="body1">{pool.poolAddress}</Typography>
-      ))}
+      <Box className={classes.routeBox}>
+        <Typography variant="body1">Route</Typography>
+        <Box display="flex" alignItems="center">
+          {
+            route.map((token, index) => {
+              return (
+                <>
+                  <CurrencyLogo className={classes.currencyLogo} currency={token?.symbol} address={token?.address}  />
+                  <Typography variant="body1">{token?.symbol}</Typography>
+                  {index !== route.length - 1 && (
+                    <ArrowForwardIosIcon className={classes.rightArrowIcon} />
+                  )}
+                </>
+              )
+            })
+          }
+        </Box>
+      </Box>
       {/* <KeyValueDisplay kkey={"Price"} mb="8px">
         {getExchangeRateValue()}
         { " " }

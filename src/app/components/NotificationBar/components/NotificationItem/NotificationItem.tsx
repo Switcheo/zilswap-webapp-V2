@@ -69,7 +69,7 @@ const NotificationItem = forwardRef<HTMLDivElement, Props>((props, ref) => {
 
     transactionState.submittedTxs.forEach(tx => {
       if (hash === tx.hash) {
-        if (tx.status === "confirmed" && message !== "transaction confirmed") {
+        if (tx.status === "confirmed" && message.toUpperCase() !== "transaction confirmed".toUpperCase()) {
           providerRef.current.closeSnackbar(snackKey);
         } else {
           setTxStatus(tx.status);
@@ -77,7 +77,7 @@ const NotificationItem = forwardRef<HTMLDivElement, Props>((props, ref) => {
       }
     })
     // eslint-disable-next-line
-  }, [{ ...transactionState.submittedTxs }, { ...transactionState.observingTxs }])
+  }, [transactionState.submittedTxs, transactionState.observingTxs])
 
   const onClickDismiss = () => {
     return () => {
