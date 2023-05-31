@@ -542,7 +542,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             </FancyButton>
 
           )}
-          <SwapDetail path={path} />
+          <SwapDetail path={path} pair={[inToken?.address ?? "", outToken?.address ?? ""]} />
         </Box>
       )}
       <ShowAdvanced showAdvanced={layoutState.showAdvancedSetting} />
