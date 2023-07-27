@@ -29,6 +29,7 @@ export interface CurrencyInputProps extends React.HTMLAttributes<HTMLFormElement
   legacyZil?: boolean;
   overrideBalance?: BigNumber;
   balanceLabel?: string;
+  allowNewToken?: boolean;
 
   onCurrencyChange?: (token: TokenInfo) => void;
   onAmountChange?: (value: string) => void;
@@ -62,6 +63,7 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
     legacyZil = false,
     overrideBalance,
     balanceLabel = 'Balance',
+    allowNewToken,
   } = props;
   const classes = useStyles();
   const moneyFormat = useMoneyFormatter({ maxFractionDigits: 5 });
@@ -241,6 +243,7 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
         open={showCurrencyDialog || showDialogOverride || false}
         onSelectCurrency={onCurrencySelect}
         onClose={onCloseDialog}
+        allowNewToken={allowNewToken}
       />
     </form>
   );

@@ -377,4 +377,10 @@ export class ZilswapConnector {
 
     return observedTx!;
   };
+
+  static getContract = async (address: string) => {
+    const contract = await zilswapV2?.getContract(address)
+    return contract
+  }
+
 }

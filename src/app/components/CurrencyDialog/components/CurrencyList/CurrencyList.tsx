@@ -1,4 +1,4 @@
-import { Box, BoxProps, ButtonBase, Typography } from "@material-ui/core";
+import { Box, BoxProps, ButtonBase, CircularProgress, Typography } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import ContrastBox from "app/components/ContrastBox";
 import CurrencyLogo from "app/components/CurrencyLogo";
@@ -20,6 +20,7 @@ type CurrencyListProps = BoxProps & {
   onSelectCurrency: (token: TokenInfo) => void;
   onToggleUserToken: (token: TokenInfo) => void;
   userTokens: string[];
+  loading?: boolean;
 };
 
 const useStyles = makeStyles((theme: AppTheme) => ({
@@ -61,7 +62,7 @@ const useStyles = makeStyles((theme: AppTheme) => ({
 }));
 
 const CurrencyList: React.FC<CurrencyListProps> = (props) => {
-  const { children, className, onSelectCurrency, onToggleUserToken, userTokens, emptyStateLabel, showContribution, search, tokens, ...rest } = props;
+  const { children, className, onSelectCurrency, onToggleUserToken, userTokens, emptyStateLabel, showContribution, search, tokens, loading, ...rest } = props;
   const classes = useStyles();
   const tokenState = useSelector<RootState, TokenState>(state => state.token);
   const walletState = useSelector<RootState, WalletState>(state => state.wallet);
@@ -100,12 +101,17 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
 
   return (
     <Box {...rest} className={cls(classes.root, className)}>
-      {!!tokenState.initialized && search.length > 0 && !tokens.length && (
+      {loading && (
+        <Box display="flex" justifyContent="center">
+          <CircularProgress color="primary" />
+        </Box>
+      )}
+      {!loading && !!tokenState.initialized && search.length > 0 && !tokens.length && (
         <Typography color="error">
           {emptyStateLabel || `No token found for "${search}"`}
         </Typography>
       )}
-      {tokens.map((token, index) => (
+      {!loading && tokens.map((token, index) => (
         <ButtonBase
           className={classes.buttonBase}
           key={index}
@@ -140,15 +146,6 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
                   })}
                 </Typography>
               )}
-              {/* {showContribution && (
-                <Typography align="right" color="textSecondary" variant="body2">
-                  {moneyFormat(getContributionPercentage(token), {
-                    maxFractionDigits: 2,
-                    compression: 0,
-                    showCurrency: false,
-                  })}%
-                </Typography>
-              )} */}
             </Box>
           </ContrastBox>
         </ButtonBase>

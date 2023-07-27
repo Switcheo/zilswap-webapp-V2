@@ -379,6 +379,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
           onEditorBlur={onDoneEditing}
           onAmountChange={(input) => onAmountChange(tokenA, input)}
           onCurrencyChange={(token) => onTokenChange("0", token)}
+          allowNewToken
         />
 
         <Box display="flex" justifyContent="flex-end">
@@ -405,6 +406,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
           onEditorBlur={onDoneEditing}
           onAmountChange={(input) => onAmountChange(tokenB, input)}
           onCurrencyChange={(token) => onTokenChange("1", token)}
+          allowNewToken
         />
 
         <Box display="flex" justifyContent="flex-end">

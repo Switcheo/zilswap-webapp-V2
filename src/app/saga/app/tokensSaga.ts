@@ -24,6 +24,8 @@ const fetchZilTokensState = async (network: Network, tokens: SimpleMap<TokenInfo
 
     logger("tokens saga", "retrieving zil token balances/allowances");
 
+    const { pools: allPools } = ZilswapConnector.getSDK().getAppState()
+
     const batchRequests: any[] = [];
     for (const t in tokens) {
       const token = tokens[t];
@@ -49,6 +51,8 @@ const fetchZilTokensState = async (network: Network, tokens: SimpleMap<TokenInfo
         updates[token.address] = { ...token }
       }
 
+      const pools = Object.values(allPools).filter(p => (p.token0Address === token.address || p.token1Address === token.address));
+
       switch (request.type) {
         case BatchRequestType.Balance: {
           let balance: BigNumber | undefined = bnOrZero(result.balance);
@@ -71,7 +75,7 @@ const fetchZilTokensState = async (network: Network, tokens: SimpleMap<TokenInfo
           const tokenInfo: Partial<TokenInfo> = {
             initialized: true,
             symbol: tokenDetails?.symbol ?? token.symbol,
-            pools: token.pools,
+            pools: pools,
             pool: token.pool,
             balance: result ? bnOrZero(result.balances[address]) : token.balance,
           };
