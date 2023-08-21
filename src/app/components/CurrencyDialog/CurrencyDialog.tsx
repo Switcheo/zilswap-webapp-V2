@@ -27,11 +27,12 @@ export interface CurrencyDialogProps extends DialogProps {
   wrapZil?: boolean,
   token?: TokenInfo | null;
   allowNewToken?: boolean;
+  tokensWithPoolsOnly?: boolean;
   tokenList: CurrencyListType;
 };
 
 const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProps) => {
-  const { className, onSelectCurrency, poolOnly = false, noPool = false, tokenList, open, token, onClose, wrapZil, allowNewToken } = props;
+  const { className, onSelectCurrency, poolOnly = false, noPool = false, tokenList, open, token, onClose, wrapZil, allowNewToken, tokensWithPoolsOnly } = props;
   const classes = useStyles();
   const [search, setSearch] = useState("");
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
@@ -55,7 +56,7 @@ const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProp
     };
     let tokens = Object.values(tokenState.tokens);
 
-    if (!allowNewToken) {
+    if (tokensWithPoolsOnly) {
       tokens = tokens.filter((tkn) => tkn.pools.length > 0)
     }
     if (tokenList === 'zil') {
@@ -71,7 +72,7 @@ const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProp
 
     if (token && !tokens.find(t => t.address === token.address) && tokens.length > 0)
       onSelectCurrency(tokens[0]);
-  }, [tokenState.tokens, walletState.wallet, tokenList, wrapZil, token, onSelectCurrency, allowNewToken]);
+  }, [tokenState.tokens, walletState.wallet, tokenList, wrapZil, token, onSelectCurrency, tokensWithPoolsOnly]);
 
   const onToggleUserToken = (token: TokenInfo) => {
     if (!tokenState.userSavedTokens.includes(token.address)) setSearch("");
@@ -132,7 +133,6 @@ const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProp
       const searchTerm = search.toLowerCase().trim();
       const isValidZilAddress = ZilliqaValidate.isAddress(searchTerm) || ZilliqaValidate.isBech32(searchTerm)
       if (filteredTokens.length === 0 && isValidZilAddress && !error && !loading && !tokenState.tokens[searchTerm]) {
-      console.log("fetching new token...")
         fetchNewToken(searchTerm)
       }
     }

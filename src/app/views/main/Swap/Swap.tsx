@@ -500,7 +500,8 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             dialogOpts={{ noPool: true, wrapZil: outToken?.isWzil && inToken?.isZil }}
             onEditorBlur={onDoneEditing}
             onAmountChange={onInAmountChange}
-            onCurrencyChange={onInCurrencyChange} />
+            onCurrencyChange={onInCurrencyChange} 
+            tokensWithPoolsOnly />
           <Box display="flex" justifyContent="flex-end">
             <ProportionSelect size="small" className={classes.proportionSelect} onSelectProp={onPercentage} />
           </Box>
@@ -520,7 +521,8 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             dialogOpts={{ noPool: true, wrapZil: inToken?.isWzil }}
             onEditorBlur={onDoneEditing}
             onAmountChange={onOutAmountChange}
-            onCurrencyChange={onOutCurrencyChange} />
+            onCurrencyChange={onOutCurrencyChange} 
+            tokensWithPoolsOnly />
 
           <Typography className={classes.errorMessage} color="error">{error?.message || errorApproveTx?.message || calculationError?.message}</Typography>
           {isInsufficientReserves && (

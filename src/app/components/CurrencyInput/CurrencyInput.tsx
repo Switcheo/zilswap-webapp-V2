@@ -8,7 +8,9 @@ import { AppTheme } from 'app/theme/types';
 import { BIG_ZERO, hexToRGBA, useMoneyFormatter } from 'app/utils';
 import { formatSymbol } from 'app/utils/currencies';
 import BigNumber from 'bignumber.js';
+import { BN_ZERO } from 'carbon-js-sdk/lib/util/number';
 import cls from 'classnames';
+import { ZilswapConnector } from 'core/zilswap';
 import React, { useMemo, useState } from 'react';
 import { CurrencyDialogProps, CurrencyListType } from '../CurrencyDialog/CurrencyDialog';
 
@@ -30,6 +32,8 @@ export interface CurrencyInputProps extends React.HTMLAttributes<HTMLFormElement
   overrideBalance?: BigNumber;
   balanceLabel?: string;
   allowNewToken?: boolean;
+  tokensWithPoolsOnly?: boolean;
+  showAmplification?: boolean;
 
   onCurrencyChange?: (token: TokenInfo) => void;
   onAmountChange?: (value: string) => void;
@@ -64,6 +68,8 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
     overrideBalance,
     balanceLabel = 'Balance',
     allowNewToken,
+    tokensWithPoolsOnly,
+    showAmplification,
   } = props;
   const classes = useStyles();
   const moneyFormat = useMoneyFormatter({ maxFractionDigits: 5 });
@@ -77,6 +83,11 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
   //   compression: poolToken?.decimals,
   // };
 
+  const ampFactor = useMemo(() => {
+    if (!token || !token?.isPoolToken) return
+    const pool = ZilswapConnector.getPoolByAddress(token.address)
+    return pool?.ampBps ?? BN_ZERO
+  }, [token])
 
   const {
     tokenBalance,
@@ -221,7 +232,15 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
                       />
                     )}
                     <Typography variant="button" className={classes.currencyText}>
-                      {formatSymbol(token) ?? (
+                      {formatSymbol(token) && (
+                        <Box component="span" ml={1} display="flex" flexDirection="column" textAlign="right">
+                          {formatSymbol(token)}
+                          {showAmplification && (<Typography color="textSecondary" variant="body2" component="span">
+                            Amplification: {ampFactor?.shiftedBy(-4).toFormat()}x
+                          </Typography>)}
+                        </Box>
+                      )}
+                      {!formatSymbol(token) && (
                         <Box component="span" ml={1}>
                           Select Token
                         </Box>
@@ -244,6 +263,7 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
         onSelectCurrency={onCurrencySelect}
         onClose={onCloseDialog}
         allowNewToken={allowNewToken}
+        tokensWithPoolsOnly={tokensWithPoolsOnly}
       />
     </form>
   );

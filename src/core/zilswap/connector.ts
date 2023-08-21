@@ -153,6 +153,12 @@ export class ZilswapConnector {
     return pools[fromBech32Address(poolAddress).toLowerCase()] ?? null;
   }
 
+  static getPools = () => {
+    if (!zilswapV2) throw new Error('not initialized');
+    const pools = zilswapV2.getPools();
+    return pools
+  }
+
   /**
    *
    *
