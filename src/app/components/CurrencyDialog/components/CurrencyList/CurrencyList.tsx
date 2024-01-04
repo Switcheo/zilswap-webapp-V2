@@ -1,4 +1,4 @@
-import { Box, BoxProps, ButtonBase, Typography } from "@material-ui/core";
+import { Box, BoxProps, ButtonBase, CircularProgress, Typography } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import ContrastBox from "app/components/ContrastBox";
 import CurrencyLogo from "app/components/CurrencyLogo";
@@ -9,8 +9,10 @@ import { BIG_ZERO } from "app/utils/constants";
 import { formatSymbol, formatTokenName } from "app/utils/currencies";
 import BigNumber from "bignumber.js";
 import cls from "classnames";
-import React from "react";
+import { ZilswapConnector, fromBech32Address } from "core/zilswap";
+import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import { Pool } from "zilswap-sdk";
 
 type CurrencyListProps = BoxProps & {
   tokens: TokenInfo[];
@@ -20,6 +22,7 @@ type CurrencyListProps = BoxProps & {
   onSelectCurrency: (token: TokenInfo) => void;
   onToggleUserToken: (token: TokenInfo) => void;
   userTokens: string[];
+  loading?: boolean;
 };
 
 const useStyles = makeStyles((theme: AppTheme) => ({
@@ -56,16 +59,22 @@ const useStyles = makeStyles((theme: AppTheme) => ({
     whiteSpace: "nowrap",
     textOverflow: "ellipsis",
     overflow: "hidden",
-    maxWidth: 125,
+    maxWidth: 185,
   },
 }));
 
 const CurrencyList: React.FC<CurrencyListProps> = (props) => {
-  const { children, className, onSelectCurrency, onToggleUserToken, userTokens, emptyStateLabel, showContribution, search, tokens, ...rest } = props;
+  const { children, className, onSelectCurrency, onToggleUserToken, userTokens, emptyStateLabel, showContribution, search, tokens, loading, ...rest } = props;
   const classes = useStyles();
+  const [pools, setPools] = useState<{ [index: string]: Pool }>({})
   const tokenState = useSelector<RootState, TokenState>(state => state.token);
   const walletState = useSelector<RootState, WalletState>(state => state.wallet);
   const moneyFormat = useMoneyFormatter({ maxFractionDigits: 12 });
+
+  useEffect(() => {
+    const pools = ZilswapConnector.getPools()
+    setPools(pools)
+  }, [])
 
   const getTokenBalance = (token: TokenInfo): BigNumber => {
     if (!walletState.wallet) return BIG_ZERO;
@@ -73,10 +82,10 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
     //   const contribution = token.pool?.userContribution ?? BIG_ZERO;
     //   return contribution as BigNumber;
     // } else {
-      const amount = token.balance;
-      if (!amount) return BIG_ZERO;
+    const amount = token.balance;
+    if (!amount) return BIG_ZERO;
 
-      return new BigNumber(amount.toString());
+    return new BigNumber(amount.toString());
     // }
   };
   // const getContributionPercentage = (token: TokenInfo) => {
@@ -100,13 +109,19 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
 
   return (
     <Box {...rest} className={cls(classes.root, className)}>
-      {!!tokenState.initialized && search.length > 0 && !tokens.length && (
+      {loading && (
+        <Box display="flex" justifyContent="center">
+          <CircularProgress color="primary" />
+        </Box>
+      )}
+      {!loading && !!tokenState.initialized && search.length > 0 && !tokens.length && (
         <Typography color="error">
           {emptyStateLabel || `No token found for "${search}"`}
         </Typography>
       )}
-      {tokens.map((token, index) => (
-        <ButtonBase
+      {!loading && tokens.map((token, index) => {
+        const pool = pools[fromBech32Address(token.address).toLowerCase()]
+        return (<ButtonBase
           className={classes.buttonBase}
           key={index}
           focusRipple
@@ -128,6 +143,9 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
                   </Typography>
                 )}
               </Box>
+              {(token.isPoolToken && pool) && (<Box display="flex" flexDirection="row">
+                <Typography className={classes.tokenName} color="textSecondary" variant="body2">Amplification: {pool.ampBps.shiftedBy(-4).toFormat()}x</Typography>
+              </Box>)}
             </Box>
             <Box flex={1}>
               {!!walletState.wallet && (
@@ -140,19 +158,10 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
                   })}
                 </Typography>
               )}
-              {/* {showContribution && (
-                <Typography align="right" color="textSecondary" variant="body2">
-                  {moneyFormat(getContributionPercentage(token), {
-                    maxFractionDigits: 2,
-                    compression: 0,
-                    showCurrency: false,
-                  })}%
-                </Typography>
-              )} */}
             </Box>
           </ContrastBox>
-        </ButtonBase>
-      ))}
+        </ButtonBase>)
+      })}
     </Box>
   );
 };

@@ -111,6 +111,11 @@ const PoolInfoDropdown: React.FC<Props> = (props: Props) => {
               ≈ ${toHumanNumber(depositedValue, 2)}
             </Text>
           </KeyValueDisplay>
+          <KeyValueDisplay marginBottom={1.5} kkey="Amplification" ValueComponent="span">
+            <Text>
+              {pool?.ampBps.shiftedBy(-4).toFormat()}x
+            </Text>
+          </KeyValueDisplay>
 
           <Box display="flex" marginTop={3}>
             <Button

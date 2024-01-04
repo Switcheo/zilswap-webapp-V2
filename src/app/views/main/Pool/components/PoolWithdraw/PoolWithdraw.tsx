@@ -87,7 +87,6 @@ const PoolWithdraw: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any
   } = useMemo(() => {
     const { token0, token1, poolInfo } = findPool(formState.poolAddress);
     const poolToken = tokenState.tokens[poolInfo?.pool.poolAddress ?? ""];
-
     const maxAmount = bnOrZero(poolToken?.balance).dp(0)
 
     return { poolToken, token0, token1, poolInfo, maxAmount };
@@ -287,7 +286,9 @@ const PoolWithdraw: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any
           onCurrencyChange={onCurrencyChange}
           dialogOpts={{
             poolOnly: true,
-          }} />
+          }} 
+          showAmplification
+          />
 
         <Box display="flex" justifyContent="flex-end">
           <ProportionSelect

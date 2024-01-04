@@ -4,7 +4,7 @@ import { ToggleButton, ToggleButtonGroup } from "@material-ui/lab";
 import { fromBech32Address, toBech32Address } from "@zilliqa-js/crypto";
 import { CurrencyInput, FancyButton, ProportionSelect } from "app/components";
 import { actions } from "app/store";
-import { PoolFormState, PoolInfo, RootState, TokenInfo, TokenState, WalletObservedTx, WalletState } from "app/store/types";
+import { PoolFormState, PoolInfo, RootState, TokenInfo, TokenState, TransactionState, WalletObservedTx, WalletState } from "app/store/types";
 import { AppTheme } from "app/theme/types";
 import { bnOrZero, useAsyncTask, useNetwork, useToaster } from "app/utils";
 import { BIG_ONE, BIG_ZERO } from "app/utils/constants";
@@ -37,6 +37,9 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
   const classes = useStyles();
   const [formState, setFormState] = useState<typeof initialFormState>(initialFormState);
   const [currencyDialogOverride, setCurrencyDialogOverride] = useState<boolean>(false);
+  const [createdPoolSuccess, setCreatedPoolSuccess] = useState<boolean>(false);
+  const [createdPoolHash, setCreatedPoolHash] = useState<string>('');
+  const [otherError, setOtherError] = useState<string | null>();
   const [runAddLiquidity, loadingAddLiquidity, error, clearPoolError] = useAsyncTask("poolAddLiquidity");
   const [runCreatePool, loadingCreatePool, errorCreatePool, clearCreatePoolError] = useAsyncTask("createPool");
   const [runApproveTx, loadingApproveTx, errorApproveTx, clearApproveError] = useAsyncTask("approveTx");
@@ -47,10 +50,14 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
   const timeoutBlocks = useSelector<RootState, number>(state => state.preference.timeoutBlocks);
   const tokenState = useSelector<RootState, TokenState>(state => state.token);
   const walletState = useSelector<RootState, WalletState>(state => state.wallet);
+  const transactionState = useSelector<RootState, TransactionState>(state => state.transaction);
   // const formatMoney = useMoneyFormatter({ showCurrency: true, maxFractionDigits: 6 });
   const toaster = useToaster();
 
   const byte20ContractAddress = fromBech32Address(ZILSWAPV2_CONTRACTS[network]).toLowerCase();
+
+  const [iteration, setIteration] = useState(0);
+  const maxIterations = 5;
 
   useEffect(() => {
     const pool = poolFormState.pool;
@@ -62,6 +69,20 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
       }))
     }
   }, [poolFormState.pool, formState.tokenBAddress, formState.tokenAAddress])
+
+  useEffect(() => {
+    if (createdPoolHash !== '') {
+      transactionState.submittedTxs.forEach(tx => {
+        if (createdPoolHash === tx.hash) {
+          if (tx.status === "confirmed") {
+            setCreatedPoolSuccess(true)
+          }
+        }
+      })
+    }
+
+    // eslint-disable-next-line
+  }, [transactionState.submittedTxs, transactionState.observingTxs, createdPoolHash])
 
   const findPool = useCallback((tokenAAddress, tokenBAddress, ampValue) => {
     const tokenA = tokenState.tokens[tokenAAddress] ?? null;
@@ -100,7 +121,14 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
   } = useMemo(() => {
     const { token0, token1, tokenA, tokenB, poolInfo, poolReversed } = findPool(formState.tokenAAddress, formState.tokenBAddress, formState.ampValue);
 
+    if (poolInfo && createdPoolSuccess && createdPoolHash !== '') {
+      // reset created pool states
+      setCreatedPoolSuccess(false)
+      setCreatedPoolHash('')
+    }
+
     return { token0, token1, tokenA, tokenB, existingPool: poolInfo, poolReversed };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [findPool, formState.tokenAAddress, formState.tokenBAddress, formState.ampValue]);
 
   useEffect(() => {
@@ -112,6 +140,25 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
       dispatch(actions.Pool.clear());
     }
   }, [network, dispatch, setFormState, poolFormState.forNetwork]);
+
+  useEffect(() => {
+    if (createdPoolSuccess && createdPoolHash !== '' && iteration === maxIterations && !existingPool) {
+      // reset created pool states
+      setCreatedPoolSuccess(false)
+      setCreatedPoolHash('')
+      setIteration(0)
+      setOtherError("Error loading pool")
+    }
+    if (createdPoolSuccess && createdPoolHash !== '' && iteration < maxIterations && !existingPool) {
+      // trigger findPool to run again
+      dispatch(actions.Token.refetchState())
+      const timerId = setTimeout(() => {
+        setIteration(iteration + 1)
+        clearTimeout(timerId)
+      }, 3000)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iteration, existingPool, createdPoolSuccess, createdPoolHash])
 
   const approveRequired: { tokenA?: TokenInfo, tokenB?: TokenInfo } | null = useMemo(() => {
     if (!walletState.wallet) return null;
@@ -136,7 +183,15 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
     onAmountChange(token, intendedAmount.shiftedBy(-token.decimals).toString());
   };
 
+  const resetOtherError = () => {
+    if (otherError) {
+      setOtherError(null)
+    }
+  }
+
   const onTokenChange = (index: "0" | "1", token: TokenInfo) => {
+    resetOtherError();
+
     const otherKey = index === "0" ? "tokenBAddress" : "tokenAAddress"
     if (token.address === formState[otherKey]) {
       setFormState(state => ({
@@ -204,6 +259,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
     const tokenBDecimals = tokenB ? -tokenB?.decimals : 0
 
     let otherAmountRaw: BigNumber | null = null;
+    resetOtherError();
     if (existingPool && existingPool.pool.token0Reserve.gt(0)) {
       const poolRatio = ZilswapConnector.getPoolRatio(existingPool.pool, token === token0 ? "1to0" : "0to1");
       otherAmountRaw = tokenAmountRaw.times(poolRatio);
@@ -236,6 +292,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
   };
 
   const onAmpChange = (evt: React.MouseEvent, value: string) => {
+    resetOtherError();
     setFormState(state => ({
       ...state,
       ampValue: value,
@@ -246,6 +303,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
     if (!tokenA || !tokenB || !formState.ampValue) return;
     clearApproveError();
     clearPoolError();
+    resetOtherError();
 
     runCreatePool(async () => {
       const observedTx = await ZilswapConnector.deployPool(tokenA.address, tokenB.address, formState.ampValue);
@@ -260,6 +318,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
       };
       dispatch(actions.Transaction.observe({ observedTx: walletObservedTx }));
       toaster("Submitted", { hash: walletObservedTx.hash });
+      setCreatedPoolHash(walletObservedTx.hash)
     });
   }
 
@@ -271,6 +330,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
 
     clearApproveError();
     clearCreatePoolError();
+    resetOtherError();
 
     runAddLiquidity(async () => {
       const { tokenAAmount, tokenBAmount } = formState;
@@ -318,7 +378,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
     if (loading || loadingApproveTx) return;
 
     clearPoolError();
-
+    resetOtherError();
 
     runApproveTx(async () => {
       const token = approveRequired?.tokenA ?? approveRequired?.tokenB;
@@ -362,7 +422,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
     }))
   };
 
-  const loading = loadingAddLiquidity || loadingApproveTx || loadingCreatePool
+  const loading = loadingAddLiquidity || loadingApproveTx || loadingCreatePool || (createdPoolHash !== '')
   const isCreatePool = !approveRequired?.tokenA && !approveRequired?.tokenB && !existingPool && tokenA && tokenB;
 
   return (
@@ -379,6 +439,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
           onEditorBlur={onDoneEditing}
           onAmountChange={(input) => onAmountChange(tokenA, input)}
           onCurrencyChange={(token) => onTokenChange("0", token)}
+          allowNewToken
         />
 
         <Box display="flex" justifyContent="flex-end">
@@ -405,6 +466,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
           onEditorBlur={onDoneEditing}
           onAmountChange={(input) => onAmountChange(tokenB, input)}
           onCurrencyChange={(token) => onTokenChange("1", token)}
+          allowNewToken
         />
 
         <Box display="flex" justifyContent="flex-end">
@@ -449,12 +511,13 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
           </ToggleButtonGroup>
         </Box>
 
-        <Typography color="error" className={classes.errorMessage}>{error?.message ?? errorApproveTx?.message ?? errorCreatePool?.message}</Typography>
+        <Typography color="error" className={classes.errorMessage}>{error?.message ?? errorApproveTx?.message ?? errorCreatePool?.message ?? otherError}</Typography>
 
 
         {!isCreatePool && (
           <FancyButton
             loading={loading}
+            disabled={loading}
             walletRequired
             showTxApprove={!!approveRequired?.tokenA || !!approveRequired?.tokenB}
             loadingTxApprove={loadingApproveTx}
@@ -471,6 +534,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
         {isCreatePool && (
           <FancyButton
             loading={loading}
+            disabled={loading}
             walletRequired
             className={classes.actionButton}
             variant="contained"

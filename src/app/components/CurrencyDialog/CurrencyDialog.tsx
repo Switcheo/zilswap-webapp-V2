@@ -4,7 +4,7 @@ import { DialogModal } from "app/components";
 import { actions } from "app/store";
 import { RootState, TokenInfo, TokenState, WalletState } from "app/store/types";
 import { AppTheme } from "app/theme/types";
-import { hexToRGBA, useTaskSubscriber } from "app/utils";
+import { hexToRGBA, useTaskSubscriber, useAsyncTask } from "app/utils";
 import { HIDE_SWAP_TOKEN_OVERRIDE, LoadingKeys } from "app/utils/constants";
 import BigNumber from "bignumber.js";
 import { Blockchain } from "carbon-js-sdk";
@@ -12,6 +12,10 @@ import clsx from "clsx";
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { CurrencyList } from "./components";
+import { ZilliqaValidate, ZilswapConnector } from "core/zilswap"
+import { ZilDataValue } from "core/utilities/viewblock";
+import { zilParamsToMap } from "core/utilities";
+import { add } from "app/store/token/actions";
 
 
 export type CurrencyListType = "zil" | "ark-zil" | "bridge-zil" | "bridge-eth";
@@ -22,19 +26,24 @@ export interface CurrencyDialogProps extends DialogProps {
   noPool?: boolean,
   wrapZil?: boolean,
   token?: TokenInfo | null;
+  allowNewToken?: boolean;
+  tokensWithPoolsOnly?: boolean;
   tokenList: CurrencyListType;
 };
 
 const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProps) => {
-  const { className, onSelectCurrency, poolOnly = false, noPool = false, tokenList, open, token, onClose, wrapZil } = props;
+  const { className, onSelectCurrency, poolOnly = false, noPool = false, tokenList, open, token, onClose, wrapZil, allowNewToken, tokensWithPoolsOnly } = props;
   const classes = useStyles();
   const [search, setSearch] = useState("");
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
+  const [error, setError] = useState<Error | undefined>();
   const [loadingConnectWallet] = useTaskSubscriber(...LoadingKeys.connectWallet);
   const dispatch = useDispatch();
 
   const tokenState = useSelector<RootState, TokenState>(state => state.token);
   const walletState = useSelector<RootState, WalletState>(state => state.wallet);
+
+  const [runFetchContract, loading] = useAsyncTask("fetchTokenContract", (e) => { setError(e) });
 
   useEffect(() => {
     if (!tokenState.tokens) return setTokens([]);
@@ -45,8 +54,11 @@ const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProp
       const difference = new BigNumber(rhs.balance?.toString() || 0).comparedTo(lhs.balance?.toString() || 0);
       return difference !== 0 ? difference : lhs.symbol.localeCompare(rhs.symbol);
     };
-
     let tokens = Object.values(tokenState.tokens);
+
+    if (tokensWithPoolsOnly) {
+      tokens = tokens.filter((tkn) => tkn.pools.length > 0)
+    }
     if (tokenList === 'zil') {
       tokens = tokens.filter(t => t.blockchain === Blockchain.Zilliqa)
     }
@@ -60,12 +72,41 @@ const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProp
 
     if (token && !tokens.find(t => t.address === token.address) && tokens.length > 0)
       onSelectCurrency(tokens[0]);
-  }, [tokenState.tokens, walletState.wallet, tokenList, wrapZil, token, onSelectCurrency]);
+  }, [tokenState.tokens, walletState.wallet, tokenList, wrapZil, token, onSelectCurrency, tokensWithPoolsOnly]);
 
   const onToggleUserToken = (token: TokenInfo) => {
     if (!tokenState.userSavedTokens.includes(token.address)) setSearch("");
     dispatch(actions.Token.updateUserSavedTokens(token.address))
   };
+
+  const fetchNewToken = (address: string) => {
+    runFetchContract(async () => {
+      const contract = await ZilswapConnector.getContract(address)
+      const init: ZilDataValue[] = await contract?.getInit()
+      const initMap = zilParamsToMap(init)
+      const newToken: TokenInfo = {
+        initialized: false,
+        isWzil: false,
+        isZil: false,
+        isZwap: false,
+        isPoolToken: false,
+        registered: true,
+        whitelisted: false,
+        symbol: initMap.symbol ?? "",
+        name: initMap.name,
+        decimals: parseInt(initMap.decimals ?? 12),
+        address: address.toLowerCase(),
+        hash: initMap._this_address,
+        pools: [],
+        blockchain: Blockchain.Zilliqa,
+      }
+
+      if (!tokenState.tokens[address]) {
+        dispatch(add({ token: newToken }))
+        setTimeout(() => { dispatch(actions.Token.refetchState()) })
+      }
+    })
+  }
 
   const filteredTokens = useMemo(() => {
     const filterSearch = (token: TokenInfo): boolean => {
@@ -87,6 +128,24 @@ const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProp
     return tokens.filter(filterSearch);
   }, [tokens, search, poolOnly, noPool, tokenState.userSavedTokens]);
 
+  useEffect(() => {
+    if (allowNewToken) {
+      const searchTerm = search.toLowerCase().trim();
+      const isValidZilAddress = ZilliqaValidate.isAddress(searchTerm) || ZilliqaValidate.isBech32(searchTerm)
+      if (filteredTokens.length === 0 && isValidZilAddress && !error && !loading && !tokenState.tokens[searchTerm]) {
+        fetchNewToken(searchTerm)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredTokens, loading, tokenState.tokens, error, allowNewToken])
+
+  const handleOnChangeInput = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    setSearch(e.target.value)
+    if (error) {
+      setError(undefined)
+    }
+  }
+
   return (
     <DialogModal header="Select Token" open={open} onClose={onClose} className={clsx(classes.root, className)}>
       <DialogContent className={classes.dialogContent}>
@@ -97,7 +156,7 @@ const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProp
             fullWidth
             classes={{ input: classes.inputText }}
             className={classes.input}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={handleOnChangeInput}
             endAdornment={
               <InputAdornment position="end">
                 <IconButton
@@ -124,7 +183,8 @@ const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProp
             userTokens={tokenState.userSavedTokens}
             onToggleUserToken={onToggleUserToken}
             onSelectCurrency={onSelectCurrency}
-            className={clsx(classes.currencies)} />
+            className={clsx(classes.currencies)}
+            loading={loading} />
         </Box>
       </DialogContent>
     </DialogModal>
