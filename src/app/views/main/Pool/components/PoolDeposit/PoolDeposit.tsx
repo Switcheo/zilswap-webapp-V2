@@ -178,9 +178,11 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
   }, [formState.tokenAAmount, formState.tokenBAmount, tokenA, tokenB, walletState.wallet, byte20ContractAddress]);
 
   const onPercentage = (token: TokenInfo, percentage: number) => {
-    const balance = new BigNumber(token.balance?.toString() || 0);
-    const intendedAmount = balance.times(percentage).decimalPlaces(0);
-    onAmountChange(token, intendedAmount.shiftedBy(-token.decimals).toString());
+    if(token) {
+      const balance = bnOrZero(token.balance)
+      const intendedAmount = balance.times(percentage).decimalPlaces(0);
+      onAmountChange(token, intendedAmount.shiftedBy(-token.decimals).toString());
+    }
   };
 
   const resetOtherError = () => {
