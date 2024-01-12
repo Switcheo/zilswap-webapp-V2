@@ -65,7 +65,7 @@ const useStyles = makeStyles((theme: AppTheme) => ({
 }));
 const SwapDetail: React.FC<SwapDetailProps> = (props: SwapDetailProps) => {
   const { children, className, path, pair, ...rest } = props;
-  const [inToken, outToken] = pair
+  const [inToken] = pair
   const classes = useStyles();
 
   const route = useMemo(() => {
@@ -73,35 +73,29 @@ const SwapDetail: React.FC<SwapDetailProps> = (props: SwapDetailProps) => {
       return [];
     }
 
-    const tokens: (TokenDetails | undefined)[] = [];
-    let middleToken = ""
+    const routeTokens: (TokenDetails | undefined)[] = []
+    const inTokenDetails = ZilswapConnector.getToken(fromBech32Address(inToken).toLowerCase())
+
+    routeTokens.push(inTokenDetails)
 
     path.forEach(([pool]) => {
-      const token0 = pool.token0Address;
-      const token1 = pool.token1Address;
+      const lastIndex = routeTokens.length - 1
+      const prev = routeTokens[lastIndex]
 
-      if (token0 !== inToken && token0 !== outToken) {
-        middleToken = token0
+      const tokenA = pool.token0Address
+      const tokenB = pool.token1Address
+
+      if (tokenA !== prev?.address){
+        const tokenADetails = ZilswapConnector.getToken(fromBech32Address(tokenA).toLowerCase())
+        routeTokens.push(tokenADetails)
       }
-      if (token1 !== inToken && token1 !== outToken) {
-        middleToken = token1
+      if (tokenB !== prev?.address){
+        const tokenBDetails = ZilswapConnector.getToken(fromBech32Address(tokenB).toLowerCase())
+        routeTokens.push(tokenBDetails)
       }
     });
 
-    const inTokenDetails = ZilswapConnector.getToken(fromBech32Address(inToken).toLowerCase())
-    const outTokenDetails = ZilswapConnector.getToken(fromBech32Address(outToken).toLowerCase())
-
-    if (middleToken === "") {
-      tokens.push(inTokenDetails)
-      tokens.push(outTokenDetails)
-    } else {
-      const middleTokenDetails = ZilswapConnector.getToken(fromBech32Address(middleToken).toLowerCase())
-      tokens.push(inTokenDetails)
-      tokens.push(middleTokenDetails)
-      tokens.push(outTokenDetails)
-    }
-
-    return tokens;
+    return routeTokens;
   }, [pair, path, ZilswapConnector]); // eslint-disable-line
 
   // const { inAmount, inToken, outAmount, outToken, expectedExchangeRate, expectedSlippage } = useSelector<RootState, SwapFormState>(store => store.swap);
