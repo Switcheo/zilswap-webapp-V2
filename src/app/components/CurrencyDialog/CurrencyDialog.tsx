@@ -24,7 +24,6 @@ export interface CurrencyDialogProps extends DialogProps {
   onSelectCurrency: (token: TokenInfo) => void;
   poolOnly?: boolean,
   noPool?: boolean,
-  wrapZil?: boolean,
   token?: TokenInfo | null;
   allowNewToken?: boolean;
   tokensWithPoolsOnly?: boolean;
@@ -32,7 +31,7 @@ export interface CurrencyDialogProps extends DialogProps {
 };
 
 const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProps) => {
-  const { className, onSelectCurrency, poolOnly = false, noPool = false, tokenList, open, token, onClose, wrapZil, allowNewToken, tokensWithPoolsOnly } = props;
+  const { className, onSelectCurrency, poolOnly = false, noPool = false, tokenList, open, token, onClose, allowNewToken, tokensWithPoolsOnly } = props;
   const classes = useStyles();
   const [search, setSearch] = useState("");
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
@@ -65,14 +64,9 @@ const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProp
 
     setTokens(tokens.sort(sortFn));
 
-    if (wrapZil) {
-      tokens = tokens.filter(t => t.isZil || t.isWzil);
-      setTokens(tokens);
-    }
-
     if (token && !tokens.find(t => t.address === token.address) && tokens.length > 0)
       onSelectCurrency(tokens[0]);
-  }, [tokenState.tokens, walletState.wallet, tokenList, wrapZil, token, onSelectCurrency, tokensWithPoolsOnly]);
+  }, [tokenState.tokens, walletState.wallet, tokenList, token, onSelectCurrency, tokensWithPoolsOnly]);
 
   const onToggleUserToken = (token: TokenInfo) => {
     if (!tokenState.userSavedTokens.includes(token.address)) setSearch("");

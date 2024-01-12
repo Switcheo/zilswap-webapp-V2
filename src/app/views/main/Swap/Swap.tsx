@@ -497,7 +497,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             token={inToken || null}
             amount={formState.inAmount}
             disabled={!inToken}
-            dialogOpts={{ noPool: true, wrapZil: outToken?.isWzil && inToken?.isZil }}
+            dialogOpts={{ noPool: true }}
             onEditorBlur={onDoneEditing}
             onAmountChange={onInAmountChange}
             onCurrencyChange={onInCurrencyChange} 
@@ -518,7 +518,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             token={outToken || null}
             amount={formState.outAmount}
             disabled
-            dialogOpts={{ noPool: true, wrapZil: inToken?.isWzil }}
+            dialogOpts={{ noPool: true  }}
             onEditorBlur={onDoneEditing}
             onAmountChange={onOutAmountChange}
             onCurrencyChange={onOutCurrencyChange} 
