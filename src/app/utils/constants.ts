@@ -194,3 +194,5 @@ export const METAZOA_STAT_PROFESSION: SimpleMap<string> = {
   "DEX": "Astrominer",
   "INT": "Psionic",
 }
+
+export const ZILSWAP_V1_URL = "https://zilswap.io/swap"

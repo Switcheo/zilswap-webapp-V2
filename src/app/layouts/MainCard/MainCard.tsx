@@ -1,6 +1,7 @@
 import { Box, Paper } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import { AppTheme } from "app/theme/types";
+import cls from "classnames";
 import { PaperProps } from "material-ui";
 import React, { Fragment, useRef } from "react";
 
@@ -10,18 +11,23 @@ import React, { Fragment, useRef } from "react";
 //   </div>
 // ));
 
+interface Props extends PaperProps{
+  header?: React.ReactNode
+}
+
 const CARD_BORDER_RADIUS = 12;
 
-const MainCard: React.FC<PaperProps> = (props: any) => {
-  const { children, className, staticContext, ...rest } = props;
+const MainCard: React.FC<Props> = (props: any) => {
+  const { children, className, staticContext, header, ...rest } = props;
   const classes = useStyles();
   const boxRef = useRef<HTMLDivElement | null>(null);
 
   return (
     <Fragment>
-      <Box className={classes.root}>
+      <Box className={cls(classes.root, className)}>
         <Box display="flex" justifyContent="center">
-          <Box width={488}>
+          <Box display="flex" flexDirection="column" alignItems="center" width={488}>
+            {header && header}
             <Paper {...{ ref: boxRef }} {...rest} className={classes.card}>
               <Box>{children}</Box>
             </Paper>
@@ -57,7 +63,7 @@ const useStyles = makeStyles((theme: AppTheme) => ({
     },
   },
   card: {
-    maxWidth: 488,
+    width: 488,
     margin: "0 auto",
     background:
       theme.palette.type === "dark"
