@@ -2,6 +2,7 @@ import { Box, IconButton } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import BrightnessLowIcon from '@material-ui/icons/BrightnessLowRounded';
 import { Notifications, ShowAdvanced } from "app/components";
+import ReturnBanner from "app/components/Banner/ReturnBanner";
 import MainCard from "app/layouts/MainCard";
 import { actions } from "app/store";
 import { LayoutState, RootState } from "app/store/types";
@@ -61,7 +62,7 @@ const PoolView: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) =>
   }
 
   return (
-    <MainCard {...rest} className={cls(classes.root, className)}>
+    <MainCard {...rest} className={cls(classes.root, className)} header={(<ReturnBanner />)}>
       <Notifications />
       {/* <AddLiquidityEarnMessage /> */}
 

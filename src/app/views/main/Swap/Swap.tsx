@@ -3,6 +3,7 @@ import AutorenewIcon from '@material-ui/icons/Autorenew';
 import BrightnessLowIcon from '@material-ui/icons/BrightnessLowRounded';
 import { fromBech32Address } from "@zilliqa-js/crypto";
 import { CurrencyInput, FancyButton, Notifications, ProportionSelect, ShowAdvanced } from "app/components";
+import ReturnBanner from "app/components/Banner/ReturnBanner";
 import MainCard from "app/layouts/MainCard";
 import { actions } from "app/store";
 import { ExactOfOptions, LayoutState, RootState, SwapFormState, TokenInfo, TokenState, WalletObservedTx, WalletState } from "app/store/types";
@@ -19,6 +20,7 @@ import { useHistory, useLocation } from "react-router";
 import { ZILSWAPV2_CONTRACTS } from "zilswap-sdk/lib/constants";
 import SwapDetail from "./components/SwapDetail";
 import { ReactComponent as SwapSVG } from "./swap_logo.svg";
+
 
 const initialFormState = {
   inAmount: "0",
@@ -479,7 +481,10 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
   }
 
   return (
-    <MainCard {...rest} className={cls(classes.root, className)}>
+    <MainCard
+      {...rest}
+      className={cls(classes.root, className)}
+      header={<ReturnBanner />}>
       <Notifications />
       {!layoutState.showAdvancedSetting && (
         <Box display="flex" flexDirection="column" className={classes.container}>
@@ -500,7 +505,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             dialogOpts={{ noPool: true }}
             onEditorBlur={onDoneEditing}
             onAmountChange={onInAmountChange}
-            onCurrencyChange={onInCurrencyChange} 
+            onCurrencyChange={onInCurrencyChange}
             tokensWithPoolsOnly />
           <Box display="flex" justifyContent="flex-end">
             <ProportionSelect size="small" className={classes.proportionSelect} onSelectProp={onPercentage} />
@@ -518,10 +523,10 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             token={outToken || null}
             amount={formState.outAmount}
             disabled
-            dialogOpts={{ noPool: true  }}
+            dialogOpts={{ noPool: true }}
             onEditorBlur={onDoneEditing}
             onAmountChange={onOutAmountChange}
-            onCurrencyChange={onOutCurrencyChange} 
+            onCurrencyChange={onOutCurrencyChange}
             tokensWithPoolsOnly />
 
           <Typography className={classes.errorMessage} color="error">{error?.message || errorApproveTx?.message || calculationError?.message}</Typography>
@@ -548,7 +553,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
         </Box>
       )}
       <ShowAdvanced showAdvanced={layoutState.showAdvancedSetting} />
-    </MainCard >
+    </MainCard>
   );
 };
 

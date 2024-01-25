@@ -11,9 +11,10 @@ import { AppTheme } from "app/theme/types";
 import { bnOrZero, hexToRGBA, useAsyncTask, useMoneyFormatter, useNetwork, useToaster } from "app/utils";
 import { BIG_ONE, BIG_ZERO } from "app/utils/constants";
 import { MoneyFormatterOptions } from "app/utils/useMoneyFormatter";
+import useTxSubscriber from "app/utils/useTxSubscriber";
 import BigNumber from "bignumber.js";
 import clsx from "clsx";
-import { fromBech32Address, ZilswapConnector } from "core/zilswap";
+import { ZilswapConnector, fromBech32Address } from "core/zilswap";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { ZILSWAPV2_CONTRACTS } from "zilswap-sdk/lib/constants";
@@ -27,14 +28,17 @@ const initialFormState = {
   tokenAmount: BIG_ZERO,
 };
 
+const REMOVE_LIQUIDITY = "poolRemoveLiquidity"
+const APPROVE_TOKEN = "approveTx"
+
 const PoolWithdraw: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
   const { children, className, ...rest } = props;
   const classes = useStyles();
   const dispatch = useDispatch();
   const [formState, setFormState] = useState<typeof initialFormState>(initialFormState);
   const [currencyDialogOverride, setCurrencyDialogOverride] = useState<boolean>(false);
-  const [runRemoveLiquidity, loading, removeError, clearPoolError] = useAsyncTask("poolRemoveLiquidity");
-  const [runApproveTx, loadingApproveTx, errorApproveTx, clearApproveError] = useAsyncTask("approveTx");
+  const [runRemoveLiquidity, loading, removeError, clearPoolError] = useAsyncTask(REMOVE_LIQUIDITY);
+  const [runApproveTx, loadingApproveTx, errorApproveTx, clearApproveError] = useAsyncTask(APPROVE_TOKEN);
   const network = useNetwork();
   const poolFormState = useSelector<RootState, PoolFormState>(state => state.pool);
   const walletState = useSelector<RootState, WalletState>(state => state.wallet);
@@ -45,6 +49,7 @@ const PoolWithdraw: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any
   const tokenState = useSelector<RootState, TokenState>(state => state.token);
 
   const toaster = useToaster();
+  const [subscribedTxs, subscribeTx] = useTxSubscriber();
 
   const byte20ContractAddress = fromBech32Address(ZILSWAPV2_CONTRACTS[network]).toLowerCase();
 
@@ -191,6 +196,7 @@ const PoolWithdraw: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any
       if (!observedTx)
         throw new Error("Allowance already sufficient for specified amount");
       dispatch(actions.Transaction.observe({ observedTx: walletObservedTx }));
+      subscribeTx(APPROVE_TOKEN, walletObservedTx.hash);
       toaster("Submitted", { hash: walletObservedTx.hash });
     });
   };
@@ -234,6 +240,7 @@ const PoolWithdraw: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any
       //   pool: updatedPool,
       // }));
       dispatch(actions.Transaction.observe({ observedTx: walletObservedTx }));
+      subscribeTx(REMOVE_LIQUIDITY, walletObservedTx.hash)
       toaster("Submitted", { hash: walletObservedTx.hash });
     });
   };
@@ -330,9 +337,10 @@ const PoolWithdraw: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any
         <Typography className={classes.errorMessage} color="error">{error?.message}</Typography>
 
         <FancyButton walletRequired
-          loading={loading}
+          loading={subscribedTxs[REMOVE_LIQUIDITY]?.isPending() || loading}
+          disabled={subscribedTxs[REMOVE_LIQUIDITY]?.isPending() || loading}
           showTxApprove={approveRequired}
-          loadingTxApprove={loadingApproveTx}
+          loadingTxApprove={subscribedTxs[APPROVE_TOKEN]?.isPending() || loadingApproveTx}
           onClickTxApprove={onApproveTx}
           className={classes.actionButton}
           variant="contained"

@@ -1,11 +1,11 @@
-import { Box, BoxProps, Button, Divider } from "@material-ui/core";
+import { Box, BoxProps, Button, Collapse, Divider } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import { ArrowDropDownRounded, ArrowDropUpRounded } from "@material-ui/icons";
 import { AmountLabel, ContrastBox, KeyValueDisplay, PoolLogo, Text } from "app/components";
 import { actions } from "app/store";
 import { RootState, TokenInfo, TokenState } from "app/store/types";
 import { AppTheme } from "app/theme/types";
-import { bnOrZero, toHumanNumber, useNetwork, useValueCalculators } from "app/utils";
+import { bnOrZero, useNetwork } from "app/utils";
 import { BIG_ZERO } from "app/utils/constants";
 import cls from "classnames";
 import { ZilswapConnector } from "core/zilswap";
@@ -41,7 +41,6 @@ const PoolInfoDropdown: React.FC<Props> = (props: Props) => {
   const { children, className, token, ...rest } = props;
   const dispatch = useDispatch();
   const classes = useStyles();
-  const valueCalculators = useValueCalculators();
   const network = useNetwork();
   const tokenState = useSelector<RootState, TokenState>((state) => state.token);
   const [active, setActive] = useState<boolean>(false);
@@ -62,10 +61,6 @@ const PoolInfoDropdown: React.FC<Props> = (props: Props) => {
   const poolShareLabel = poolShare.shiftedBy(2).decimalPlaces(3).toString(10) ?? "";
   const token0Amount = poolShare.times(pool?.token0Reserve ?? BIG_ZERO);
   const token1Amount = poolShare.times(pool?.token1Reserve ?? BIG_ZERO);
-
-  const poolInfo = pool && token0 && token1 ? { pool, token0, token1 } : undefined;
-  const poolValue = valueCalculators.pool(tokenState.prices, poolInfo, token);
-  const depositedValue = poolShare.times(poolValue);
 
   const onGotoAdd = () => {
     dispatch(actions.Pool.select({ pool, network }));
@@ -88,7 +83,7 @@ const PoolInfoDropdown: React.FC<Props> = (props: Props) => {
           {!active && <ArrowDropDownRounded className={classes.arrowIcon} />}
         </Box>
       </Button>
-      {active && (
+      <Collapse in={active}>
         <ContrastBox>
           <KeyValueDisplay marginBottom={1.5} kkey={`Your Pool Share (${poolShareLabel}%)`} ValueComponent="span">
             <AmountLabel
@@ -99,17 +94,14 @@ const PoolInfoDropdown: React.FC<Props> = (props: Props) => {
               currency={token0.symbol}
               address={token0.address}
               amount={token0Amount}
-              compression={token.decimals} />
+              compression={token0.decimals} />
             <AmountLabel
               iconStyle="small"
               justifyContent="flex-end"
               currency={token1.symbol}
               address={token1.address}
               amount={token1Amount}
-              compression={token.decimals} />
-            <Text variant="body2" className={classes.textGreen} align="right">
-              ≈ ${toHumanNumber(depositedValue, 2)}
-            </Text>
+              compression={token1.decimals} />
           </KeyValueDisplay>
           <KeyValueDisplay marginBottom={1.5} kkey="Amplification" ValueComponent="span">
             <Text>
@@ -139,7 +131,7 @@ const PoolInfoDropdown: React.FC<Props> = (props: Props) => {
             </Button>
           </Box>
         </ContrastBox>
-      )}
+      </Collapse>
       <Divider className={classes.divider} />
     </Box>
   );

@@ -118,7 +118,7 @@ const FancyButton: React.FC<FancyButtonProps> = (props: any) => {
     <Box display="flex" className={containerClass}>
       {(showTxApprove && walletState.wallet) && (
         <Tooltip title="Transaction needs to be approved before swapping or adding liquidity">
-          <Button onClick={onClickTxApprove} disabled={approveButtonDisabled} className={cls(classes.unlockButton, className)} color="primary" variant="contained">
+          <Button onClick={onClickTxApprove} disabled={approveButtonDisabled || loadingTxApprove} className={cls(classes.unlockButton, className)} color="primary" variant="contained">
             {!loadingTxApprove && `1. ${approveText ?? "Unlock"}`}
             {!!loadingTxApprove && (
               <CircularProgress size={24} className={classes.progress} />
