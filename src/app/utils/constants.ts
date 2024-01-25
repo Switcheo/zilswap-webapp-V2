@@ -65,6 +65,7 @@ export const PRODUCTION_HOSTS = [
   "www.zilswap.io",
   "zilswap.exchange",
   "www.zilswap.exchange",
+  "v2.zilswap.io",
 ];
 
 export const isProduction = () => {
