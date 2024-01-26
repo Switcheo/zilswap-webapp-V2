@@ -17353,10 +17353,10 @@ zeeves-auth-sdk-js@^2.0.0:
     buffer "^6.0.3"
     crypto-js "^4.0.0"
 
-zilswap-sdk@^2.0.0-rc4:
-  version "2.0.0-rc4"
-  resolved "https://registry.yarnpkg.com/zilswap-sdk/-/zilswap-sdk-2.0.0-rc4.tgz#bd1df93adbf11a1b32cd018db0481b1230b859b6"
-  integrity sha512-2xtbPFbWDKa5vh0fQtgxz0XOEtsKQcU9qQLOpGyhzCdE9D7FUOMdEQcqQ5iBMFvRbCwFJsa0YxFK7tXawtrA4Q==
+zilswap-sdk@^2.0.0-rc5:
+  version "2.0.0-rc5"
+  resolved "https://registry.yarnpkg.com/zilswap-sdk/-/zilswap-sdk-2.0.0-rc5.tgz#ae872a9d9f1932bc20f55b81ac2658857754183d"
+  integrity sha512-2SQ5LAncmm1V1H/MaWiULwrJlMTS6QBJZmlMcqs4jM3pd9L3fcdq28Hg3prQaQaGeI++WKAwPiW71cTTEvDDLQ==
   dependencies:
     "@zilliqa-js/zilliqa" "^2.2.0"
     async-mutex "^0.2.2"
