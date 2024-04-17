@@ -532,7 +532,7 @@ const PoolDeposit: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any)
         {isCreatePool && (
           <FancyButton
             loading={subscribedTxs[DEPLOY_POOL]?.isPending() || subscribedTxs[CREATE_POOL]?.isPending() || loadingCreatePool}
-            disabled={subscribedTxs[DEPLOY_POOL]?.isPending() || subscribedTxs[CREATE_POOL]?.isPending() || loadingCreatePool}
+            disabled={subscribedTxs[DEPLOY_POOL]?.isPending() || subscribedTxs[CREATE_POOL]?.isPending() || loadingCreatePool || formState.tokenBAmount.eq(0) || formState.tokenAAmount.eq(0)}
             walletRequired
             className={classes.actionButton}
             variant="contained"

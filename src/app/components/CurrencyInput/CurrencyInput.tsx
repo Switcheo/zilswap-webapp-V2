@@ -159,7 +159,11 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
         onBlur={onEditorBlur}
         disabled={disabled}
         type="number"
-        inputProps={{ min: '0', className: classes.input }}
+        inputProps={{ 
+          min: '0', 
+          className: classes.input,
+          onKeyDown: (e) => ['e', 'E', '+', '-'].includes(e.key) && e.preventDefault(),
+        }}
         endAdornment={
           <InputAdornment className={classes.endAdornment} position="end">
             {fixedToken ? (
@@ -284,6 +288,10 @@ const useStyles = makeStyles((theme: AppTheme) => ({
   },
   input: {
     textAlign: 'left',
+    '&.Mui-disabled': {
+      color: theme.palette.type === 'light' ? '#003340' : '#DEFFFF',
+      opacity: 0.6
+    },
   },
   inputRowNoLabel: {
     '& .MuiInputBase-input': {
