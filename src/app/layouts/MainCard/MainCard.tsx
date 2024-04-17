@@ -75,6 +75,7 @@ const useStyles = makeStyles((theme: AppTheme) => ({
     borderRadius: CARD_BORDER_RADIUS,
     [theme.breakpoints.down("sm")]: {
       maxWidth: 450,
+      width: "100%",
     },
   },
   tabs: {
