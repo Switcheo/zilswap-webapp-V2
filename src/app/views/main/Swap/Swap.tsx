@@ -20,7 +20,8 @@ import { useHistory, useLocation } from "react-router";
 import { ZILSWAPV2_CONTRACTS } from "zilswap-sdk/lib/constants";
 import SwapDetail from "./components/SwapDetail";
 import { ReactComponent as SwapSVG } from "./swap_logo.svg";
-
+import useGetSwapRoute from "app/utils/useGetSwapRoute";
+import { BN_ZERO } from "carbon-js-sdk/lib/util/number";
 
 const initialFormState = {
   inAmount: "0",
@@ -62,22 +63,128 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
   const [recipientAddrBlacklisted, setRecipientAddrBlacklisted] = useState(false);
   const toaster = useToaster();
 
-  const { path, isInsufficientReserves } = useMemo(() => {
+  const { path, pair } = useMemo(() => {
     const { inToken, outToken, inAmount } = swapFormState;
     if (!inToken || !outToken) return {};
+    const pair: [string, string] = [inToken?.address ?? "", outToken?.address ?? ""]
     const inAmountUnitless = inAmount.shiftedBy(inToken.decimals);
-    const { swapPath, expectedAmount } = ZilswapConnector.findSwapPath(inToken.hash, outToken.hash, inAmountUnitless);
-
-    const [pool, isSameOrder] = swapPath?.slice(-1)?.[0] ?? [];
-    const outReserves = isSameOrder ? pool?.token1Reserve : pool?.token0Reserve;
-
-    let isInsufficientReserves = false;
-    if (outReserves?.lt(expectedAmount))
-      isInsufficientReserves = true;
-
-    return { path: swapPath, expectedAmount, isInsufficientReserves };
+    const { swapPath } = ZilswapConnector.findSwapPath(inToken.hash, outToken.hash, inAmountUnitless);
+    return { path: swapPath, pair };
   }, [swapFormState]);
 
+  const calculateAmounts = (props: CalculateAmountProps = {}) => {
+    let _inAmount: BigNumber = props.inAmount ?? swapFormState.inAmount;
+    let _outAmount: BigNumber = props.outAmount ?? swapFormState.outAmount;
+    const _inToken: TokenInfo | undefined = props.inToken ?? swapFormState.inToken;
+    const _outToken: TokenInfo | undefined = props.outToken ?? swapFormState.outToken;
+    const _exactOf: ExactOfOptions = props.exactOf ?? swapFormState.exactOf;
+
+    if (!_inToken || !_outToken) return {
+      inAmount: _inAmount,
+      outAmount: _outAmount,
+      inToken: _inToken,
+      outToken: _outToken,
+      exactOf: _exactOf,
+    };
+
+    const srcToken = _exactOf === "in" ? _inToken : _outToken;
+    const dstToken = _exactOf === "in" ? _outToken : _inToken;
+
+    const srcAmount = (_exactOf === "in" ? _inAmount : _outAmount).shiftedBy(srcToken.decimals);
+    let expectedExchangeRate = BIG_ONE;
+    let expectedSlippage = 0;
+    let dstAmount = srcAmount;
+    let isInsufficientReserves = false;
+
+    try {
+      if (srcAmount.abs().gt(0)) {
+        const expectedAmount = new BigNumber(ZilswapConnector.getExchangeRate({
+          amount: srcAmount.decimalPlaces(0),
+          exactOf: _exactOf,
+          tokenInID: _inToken!.address,
+          tokenOutID: _outToken!.address,
+        }))
+
+        if (expectedAmount.isNaN() || expectedAmount.isNegative()) {
+          isInsufficientReserves = true;
+          expectedExchangeRate = BIG_ZERO;
+          expectedSlippage = 0;
+          dstAmount = BIG_ZERO;
+        } else {
+          const expectedAmountUnits = expectedAmount.shiftedBy(-dstToken.decimals);
+          const srcAmountUnits = srcAmount.shiftedBy(-srcToken.decimals);
+          expectedExchangeRate = expectedAmountUnits.div(srcAmountUnits).pow(_exactOf === "in" ? 1 : -1).abs();
+          // expectedSlippage = slippage.shiftedBy(-2).toNumber();
+
+          dstAmount = expectedAmount.shiftedBy(-dstToken?.decimals || 0).decimalPlaces(dstToken?.decimals || 0);
+        }
+      }
+      else {
+        expectedExchangeRate = BIG_ZERO;
+        dstAmount = BIG_ZERO;
+      }
+    } catch (err) {
+      const typedErr = err as Error
+      setCalculationError(typedErr)
+      console.error(err)
+      expectedExchangeRate = BIG_ZERO;
+      dstAmount = BIG_ZERO;
+    }
+
+
+    return {
+      inAmount: _inAmount,
+      outAmount: _outAmount,
+      inToken: _inToken,
+      outToken: _outToken,
+      exactOf: _exactOf,
+      ..._exactOf === "in" && {
+        outAmount: dstAmount,
+      },
+      ..._exactOf === "out" && {
+        inAmount: dstAmount,
+      },
+
+      isInsufficientReserves,
+      expectedExchangeRate,
+      expectedSlippage,
+    };
+  };
+
+  const route = useGetSwapRoute(pair, path)
+
+  const isInsufficientReserves = useMemo(() => {
+    let currentPoolIndex = 0
+    let isInsufficientReserves = false
+    let inTokenAmount = swapFormState.inAmount ?? BN_ZERO
+    for (let i = 0; i < route.length - 1; i++) {
+      // Assuming the path pools match the swap route, since swap route is derived from path via useGetSwapRoute()
+      const inToken = route[i];
+      const outToken = route[i + 1];
+
+      if (!inToken || !outToken || !path) continue;
+
+      const currentPool = path[currentPoolIndex][0]
+      const result = calculateAmounts({
+        exactOf: "in",
+        inToken: inToken,
+        outToken: outToken,
+        inAmount: inTokenAmount,
+        outAmount: BN_ZERO
+      });
+      const outReserve = outToken.address === currentPool.token0Address ? currentPool.token0Reserve : currentPool.token1Reserve
+      const shiftedOutReserve = outReserve.shiftedBy(-outToken.decimals)
+
+      if (shiftedOutReserve.lt(result.outAmount)) {
+        isInsufficientReserves = true;
+        break;
+      }
+      inTokenAmount = result.outAmount;
+    }
+
+    return isInsufficientReserves
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, route, swapFormState.inAmount]) 
 
   // Use default form
   useEffect(() => {
@@ -177,85 +284,6 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
     const intendedAmount = balance.times(percentage).decimalPlaces(0);
     const netGasAmount = inToken.isZil ? ZilswapConnector.adjustedForGas(intendedAmount, balance) : intendedAmount;
     onInAmountChange(netGasAmount.shiftedBy(-inToken.decimals).toString());
-  };
-
-  const calculateAmounts = (props: CalculateAmountProps = {}) => {
-    let _inAmount: BigNumber = props.inAmount ?? swapFormState.inAmount;
-    let _outAmount: BigNumber = props.outAmount ?? swapFormState.outAmount;
-    const _inToken: TokenInfo | undefined = props.inToken ?? swapFormState.inToken;
-    const _outToken: TokenInfo | undefined = props.outToken ?? swapFormState.outToken;
-    const _exactOf: ExactOfOptions = props.exactOf ?? swapFormState.exactOf;
-
-    if (!_inToken || !_outToken) return {
-      inAmount: _inAmount,
-      outAmount: _outAmount,
-      inToken: _inToken,
-      outToken: _outToken,
-      exactOf: _exactOf,
-    };
-
-    const srcToken = _exactOf === "in" ? _inToken : _outToken;
-    const dstToken = _exactOf === "in" ? _outToken : _inToken;
-
-    const srcAmount = (_exactOf === "in" ? _inAmount : _outAmount).shiftedBy(srcToken.decimals);
-    let expectedExchangeRate = BIG_ONE;
-    let expectedSlippage = 0;
-    let dstAmount = srcAmount;
-    let isInsufficientReserves = false;
-
-    try {
-      if (srcAmount.abs().gt(0)) {
-        const expectedAmount = new BigNumber(ZilswapConnector.getExchangeRate({
-          amount: srcAmount.decimalPlaces(0),
-          exactOf: _exactOf,
-          tokenInID: _inToken!.address,
-          tokenOutID: _outToken!.address,
-        }))
-
-        if (expectedAmount.isNaN() || expectedAmount.isNegative()) {
-          isInsufficientReserves = true;
-          expectedExchangeRate = BIG_ZERO;
-          expectedSlippage = 0;
-          dstAmount = BIG_ZERO;
-        } else {
-          const expectedAmountUnits = expectedAmount.shiftedBy(-dstToken.decimals);
-          const srcAmountUnits = srcAmount.shiftedBy(-srcToken.decimals);
-          expectedExchangeRate = expectedAmountUnits.div(srcAmountUnits).pow(_exactOf === "in" ? 1 : -1).abs();
-          // expectedSlippage = slippage.shiftedBy(-2).toNumber();
-
-          dstAmount = expectedAmount.shiftedBy(-dstToken?.decimals || 0).decimalPlaces(dstToken?.decimals || 0);
-        }
-      }
-      else {
-        expectedExchangeRate = BIG_ZERO;
-        dstAmount = BIG_ZERO;
-      }
-    } catch (err) {
-      const typedErr = err as Error
-      setCalculationError(typedErr)
-      console.error(err)
-      expectedExchangeRate = BIG_ZERO;
-      dstAmount = BIG_ZERO;
-    }
-
-
-    return {
-      inAmount: _inAmount,
-      outAmount: _outAmount,
-      inToken: _inToken,
-      outToken: _outToken,
-      exactOf: _exactOf,
-      ..._exactOf === "in" && {
-        outAmount: dstAmount,
-      },
-      ..._exactOf === "out" && {
-        inAmount: dstAmount,
-      },
-
-      isInsufficientReserves,
-      expectedExchangeRate,
-      expectedSlippage,
-    };
   };
 
   // Calculates the amountIn when user types in amountOut
@@ -549,7 +577,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             </FancyButton>
 
           )}
-          <SwapDetail path={path} pair={[inToken?.address ?? "", outToken?.address ?? ""]} />
+          <SwapDetail path={path} pair={pair} />
         </Box>
       )}
       <ShowAdvanced showAdvanced={layoutState.showAdvancedSetting} />
