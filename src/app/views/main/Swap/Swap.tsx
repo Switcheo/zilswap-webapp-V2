@@ -577,7 +577,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
             </FancyButton>
 
           )}
-          <SwapDetail path={path} pair={pair} />
+          <SwapDetail route={route} />
         </Box>
       )}
       <ShowAdvanced showAdvanced={layoutState.showAdvancedSetting} />

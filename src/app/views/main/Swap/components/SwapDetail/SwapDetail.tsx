@@ -4,14 +4,12 @@ import { CurrencyLogo } from "app/components";
 import { AppTheme } from "app/theme/types";
 import cls from "classnames";
 import React from "react";
-import { Pool } from "zilswap-sdk";
 import ArrowForwardIosIcon from '@material-ui/icons/ArrowForwardIos';
-import useGetSwapRoute from "app/utils/useGetSwapRoute";
+import { TokenInfo } from "app/store/types";
 
 
 export interface SwapDetailProps extends BoxProps {
-  path?: [Pool, boolean][] | null | undefined;
-  pair: [string, string] | undefined;
+  route: (TokenInfo | undefined)[]
 };
 
 const useStyles = makeStyles((theme: AppTheme) => ({
@@ -63,8 +61,7 @@ const useStyles = makeStyles((theme: AppTheme) => ({
   },
 }));
 const SwapDetail: React.FC<SwapDetailProps> = (props: SwapDetailProps) => {
-  const { children, className, path, pair, ...rest } = props;
-  const route = useGetSwapRoute(pair, path);
+  const { children, className, route, ...rest } = props;
   const classes = useStyles();
 
   // const { inAmount, inToken, outAmount, outToken, expectedExchangeRate, expectedSlippage } = useSelector<RootState, SwapFormState>(store => store.swap);
@@ -130,7 +127,7 @@ const SwapDetail: React.FC<SwapDetailProps> = (props: SwapDetailProps) => {
   //   )
   // };
 
-  if (!path?.length) return null;
+  if (!route?.length) return null;
 
   return (
     <Box {...rest} className={cls(classes.root, className)}>
