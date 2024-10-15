@@ -3,16 +3,13 @@ import { makeStyles } from "@material-ui/core/styles";
 import { CurrencyLogo } from "app/components";
 import { AppTheme } from "app/theme/types";
 import cls from "classnames";
-import React, { useMemo } from "react";
-import { Pool, TokenDetails } from "zilswap-sdk";
+import React from "react";
 import ArrowForwardIosIcon from '@material-ui/icons/ArrowForwardIos';
-import { ZilswapConnector } from "core/zilswap/connector";
-import { fromBech32Address } from "@zilliqa-js/zilliqa";
+import { TokenInfo } from "app/store/types";
 
 
 export interface SwapDetailProps extends BoxProps {
-  path?: [Pool, boolean][] | null | undefined;
-  pair: [string, string];
+  route: (TokenInfo | undefined)[]
 };
 
 const useStyles = makeStyles((theme: AppTheme) => ({
@@ -64,39 +61,8 @@ const useStyles = makeStyles((theme: AppTheme) => ({
   },
 }));
 const SwapDetail: React.FC<SwapDetailProps> = (props: SwapDetailProps) => {
-  const { children, className, path, pair, ...rest } = props;
-  const [inToken] = pair
+  const { children, className, route, ...rest } = props;
   const classes = useStyles();
-
-  const route = useMemo(() => {
-    if (!path || !pair) {
-      return [];
-    }
-
-    const routeTokens: (TokenDetails | undefined)[] = []
-    const inTokenDetails = ZilswapConnector.getToken(fromBech32Address(inToken).toLowerCase())
-
-    routeTokens.push(inTokenDetails)
-
-    path.forEach(([pool]) => {
-      const lastIndex = routeTokens.length - 1
-      const prev = routeTokens[lastIndex]
-
-      const tokenA = pool.token0Address
-      const tokenB = pool.token1Address
-
-      if (tokenA !== prev?.address){
-        const tokenADetails = ZilswapConnector.getToken(fromBech32Address(tokenA).toLowerCase())
-        routeTokens.push(tokenADetails)
-      }
-      if (tokenB !== prev?.address){
-        const tokenBDetails = ZilswapConnector.getToken(fromBech32Address(tokenB).toLowerCase())
-        routeTokens.push(tokenBDetails)
-      }
-    });
-
-    return routeTokens;
-  }, [pair, path, ZilswapConnector]); // eslint-disable-line
 
   // const { inAmount, inToken, outAmount, outToken, expectedExchangeRate, expectedSlippage } = useSelector<RootState, SwapFormState>(store => store.swap);
   // const moneyFormat = useMoneyFormatter({ maxFractionDigits: 5, showCurrency: true });
@@ -161,7 +127,7 @@ const SwapDetail: React.FC<SwapDetailProps> = (props: SwapDetailProps) => {
   //   )
   // };
 
-  if (!path?.length) return null;
+  if (!route?.length) return null;
 
   return (
     <Box {...rest} className={cls(classes.root, className)}>
