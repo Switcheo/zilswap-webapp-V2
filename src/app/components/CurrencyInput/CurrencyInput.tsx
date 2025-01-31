@@ -5,14 +5,13 @@ import { CurrencyLogo } from 'app/components';
 import CurrencyDialog from 'app/components/CurrencyDialog';
 import { TokenInfo } from 'app/store/types';
 import { AppTheme } from 'app/theme/types';
-import { BIG_ZERO, hexToRGBA, useMoneyFormatter } from 'app/utils';
+import { BIG_ZERO, CurrencyListType, hexToRGBA, useMoneyFormatter } from 'app/utils';
 import { formatSymbol } from 'app/utils/currencies';
 import BigNumber from 'bignumber.js';
-import { BN_ZERO } from 'carbon-js-sdk/lib/util/number';
 import cls from 'classnames';
 import { ZilswapConnector } from 'core/zilswap';
 import React, { useMemo, useState } from 'react';
-import { CurrencyDialogProps, CurrencyListType } from '../CurrencyDialog/CurrencyDialog';
+import { CurrencyDialogProps } from '../CurrencyDialog/CurrencyDialog';
 
 
 export interface CurrencyInputProps extends React.HTMLAttributes<HTMLFormElement> {
@@ -86,7 +85,7 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
   const ampFactor = useMemo(() => {
     if (!token || !token?.isPoolToken) return
     const pool = ZilswapConnector.getPoolByAddress(token.address)
-    return pool?.ampBps ?? BN_ZERO
+    return pool?.ampBps ?? BIG_ZERO
   }, [token])
 
   const {
@@ -184,7 +183,7 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
                       <CurrencyLogo
                         legacy="true"
                         currency={token?.symbol}
-                        address={token?.address}
+                        address={token?.logoAddress ?? token?.address}
                         blockchain={token?.blockchain}
                         className={classes.currencyLogo}
                       />
@@ -199,7 +198,7 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
                   <Box display="flex" alignItems="center">
                     <CurrencyLogo
                       currency={token?.symbol}
-                      address={token?.address}
+                      address={token?.logoAddress ?? token?.address}
                       blockchain={token?.blockchain}
                       className={classes.currencyLogo}
                     />
@@ -231,7 +230,7 @@ const CurrencyInput: React.FC<CurrencyInputProps> = (props: CurrencyInputProps) 
                       <CurrencyLogo
                         currency={token.registered && token.symbol}
                         blockchain={token?.blockchain}
-                        address={token.address}
+                        address={token?.logoAddress ?? token?.address}
                         className={classes.currencyLogo}
                       />
                     )}

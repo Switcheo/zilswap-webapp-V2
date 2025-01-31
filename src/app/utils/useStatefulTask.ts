@@ -1,10 +1,11 @@
 import { useDispatch } from "react-redux";
 import actions from "app/store/actions";
 import { uuidv4 } from "app/utils";
+import { useCallback } from "react";
 
 const useStatefulTask = <T>() => {
   const dispatch = useDispatch();
-  return async (runnable: () => Promise<T>, taskName = uuidv4()): Promise<T> => {
+  return useCallback(async (runnable: () => Promise<T>, taskName = uuidv4()): Promise<T> => {
     if (typeof runnable !== "function")
       throw new Error("stateful task runnable not a function");
     const taskUuid = uuidv4();
@@ -14,7 +15,7 @@ const useStatefulTask = <T>() => {
     } finally {
       dispatch(actions.Layout.removeBackgroundLoading(taskUuid));
     }
-  }
+  }, [dispatch])
 };
 
 export default useStatefulTask;

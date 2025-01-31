@@ -34,6 +34,12 @@ jobs:
       - run:
           name: yarn build according to branch
           command: |
+            echo "REACT_APP_RPC_ARB=$RPC_ARB" >> .env
+            echo "REACT_APP_RPC_BSC=$RPC_BSC" >> .env
+            echo "REACT_APP_RPC_BASE=$RPC_BASE" >> .env
+            echo "REACT_APP_RPC_POLYGON=$RPC_POLYGON" >> .env
+            echo "REACT_APP_RPC_ZIL=$RPC_ZIL" >> .env
+            echo "REACT_APP_RPC_ETH=$RPC_ETH" >> .env
             NODE_OPTIONS="--max_old_space_size=7168" yarn build --transpile-only
 
       - persist_to_workspace:

@@ -104,7 +104,7 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
   }
 
   const getLogoAddress = (token: TokenInfo) => {
-    return token.address;
+    return token.logoAddress ?? token.address;
   }
 
   return (
@@ -120,7 +120,7 @@ const CurrencyList: React.FC<CurrencyListProps> = (props) => {
         </Typography>
       )}
       {!loading && tokens.map((token, index) => {
-        const pool = pools[fromBech32Address(token.address).toLowerCase()]
+        const pool = !token.bridgeFrom && pools[fromBech32Address(token.address).toLowerCase()]
         return (<ButtonBase
           className={classes.buttonBase}
           key={index}

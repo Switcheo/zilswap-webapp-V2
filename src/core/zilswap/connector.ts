@@ -3,6 +3,7 @@ import BigNumber from "bignumber.js";
 import { ObservedTx, Pool, TokenDetails, ZilSwapV2 } from "zilswap-sdk";
 import { Network, ZILSWAPV2_CONTRACTS } from "zilswap-sdk/lib/constants";
 
+import { getErrorMessage } from "app/utils";
 import { logger } from "core/utilities";
 import { ConnectedWallet } from "core/wallet/ConnectedWallet";
 import { fromBech32Address } from "./reexport";
@@ -118,7 +119,7 @@ export class ZilswapConnector {
         const tx = await sdk.zilliqa.blockchain.getTransaction(txHash);
         if (tx.isConfirmed()) return tx;
       } catch (error) {
-        if (error?.message !== "Txn Hash not Present") 
+        if (getErrorMessage(error) !== "Txn Hash not Present") 
           throw error;
       } finally {
         await new Promise(res => setTimeout(res, interval));

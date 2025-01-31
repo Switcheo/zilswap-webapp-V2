@@ -1,6 +1,7 @@
-import { RPCResponse } from "@zilliqa-js/core";
 import { Value } from "@zilliqa-js/contract";
+import { RPCResponse } from "@zilliqa-js/core";
 import { Zilliqa } from "@zilliqa-js/zilliqa";
+import { getErrorMessage } from "app/utils";
 import { ZilswapConnector } from "core/zilswap";
 import { logger } from "./logger";
 
@@ -80,7 +81,7 @@ export const waitForTx = async (txHash: string, maxAttempts: number = 33, interv
       const zilliqa = new Zilliqa(rpcEndpoint)
       return await zilliqa.blockchain.getTransaction(txHash);
     } catch (error) {
-      if (error?.message === "Txn Hash not Present")
+      if (getErrorMessage(error) === "Txn Hash not Present")
         continue;
       throw error;
     }

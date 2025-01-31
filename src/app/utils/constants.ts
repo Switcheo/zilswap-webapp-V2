@@ -180,20 +180,43 @@ export const REPORT_LEVEL_DEFAULT= 0;
 export const REPORT_LEVEL_WARNING = 1;
 export const REPORT_LEVEL_SUSPICIOUS = 2;
 
-export const METAZOA_STAT: SimpleMap<string> = {
-  "STR": "Strength",
-  "INT": "Intellect",
-  "DEX": "Dexterity",
-  "LUK": "Luck",
-  "SPD": "Speed",
-  "END": "Endurance",
-  "ACC": "Accuracy",
-}
-
-export const METAZOA_STAT_PROFESSION: SimpleMap<string> = {
-  "STR": "Marauder",
-  "DEX": "Astrominer",
-  "INT": "Psionic",
-}
-
 export const ZILSWAP_V1_URL = "https://zilswap.io/swap"
+
+export enum Blockchain {
+  Ethereum = "eth",
+  BinanceSmartChain = "bsc",
+  Zilliqa = "zil",
+  Arbitrum = "arbitrum",
+  Polygon = "polygon",
+  Base = "base",
+}
+
+export const BRIDGEABLE_EVM_CHAINS = [
+  Blockchain.Ethereum,
+  Blockchain.Arbitrum,
+  Blockchain.Base,
+  Blockchain.BinanceSmartChain,
+  Blockchain.Polygon,
+  Blockchain.Zilliqa,
+] as const
+
+export const DISABLE_ZILBRIDGE = false;
+
+export const ZILBRIDGE_BLACKLIST_DENOMS: string[] = [];
+
+export const isBlacklistedBridgeDenoms = (address: string) => {
+  return ZILBRIDGE_BLACKLIST_DENOMS.includes(address)
+}
+
+export const CHAIN_NAMES = {
+  [Blockchain.Zilliqa]: 'Zilliqa',
+  [Blockchain.Base]: 'Base',
+  [Blockchain.Ethereum]: 'Ethereum',
+  [Blockchain.BinanceSmartChain]: 'Binance Smart Chain',
+  [Blockchain.Arbitrum]: 'Arbitrum One',
+  [Blockchain.Polygon]: 'Polygon',
+} as const
+
+export type BridgeableEvmChains = typeof BRIDGEABLE_EVM_CHAINS[number]
+export type BridgeableChains = BridgeableEvmChains | Blockchain.Zilliqa
+export type CurrencyListType = "zil" | "ark-zil" | `bridge-${BridgeableChains}`;

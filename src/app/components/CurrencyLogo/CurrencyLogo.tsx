@@ -42,26 +42,27 @@ const CurrencyLogo = (props: any) => {
 
   const urlSuffix = theme.palette.type === 'dark' ? '?t=dark' : '';
   const isZil = typeof currency === 'string' && ['eZIL', 'ZIL'].includes(currency);
-  let tokenIconUrl: string;
-
+  
   useEffect(() => {
     setError(false)
   }, [address])
+  
+  const tokenIconUrl = useMemo(() => {
+    let tokenIconUrl: string;
 
-  const logoAddress = useMemo(() => {
-    return address;
-  }, [address]);
+    if (network === Network.TestNet) {
+      if (isZil) tokenIconUrl = `https://meta.viewblock.io/ZIL/logo${urlSuffix}`;
+      else
+        tokenIconUrl = `https://dr297zt0qngbx.cloudfront.net/tokens/testnet/${address}`;
+    } else {
+      let tokenKey = isZil ? 'ZIL' : `ZIL.${address}`;
+      if (address?.startsWith('0x') && !isZil)
+        tokenKey = `ZIL.${toBech32Address(address)}`;
+      tokenIconUrl = `https://meta.viewblock.io/${tokenKey}/logo${urlSuffix}`;
+    }
 
-  if (network === Network.TestNet) {
-    if (isZil) tokenIconUrl = `https://meta.viewblock.io/ZIL/logo${urlSuffix}`;
-    else
-      tokenIconUrl = `https://dr297zt0qngbx.cloudfront.net/tokens/testnet/${logoAddress}`;
-  } else {
-    let tokenKey = isZil ? '' : `.${logoAddress}`;
-    if (logoAddress?.startsWith('0x') && !isZil)
-      tokenKey = `ZIL.${toBech32Address(logoAddress)}`;
-    tokenIconUrl = `https://meta.viewblock.io/ZIL${tokenKey}/logo${urlSuffix}`;
-  }
+    return tokenIconUrl;
+  }, [address, network, isZil, urlSuffix])
   const fallbackImg = `https://meta.viewblock.io/ZIL.notfound/logo${urlSuffix}`;
 
   return (

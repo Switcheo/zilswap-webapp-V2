@@ -1,4 +1,4 @@
-import { SimpleMap } from "app/utils";
+import { Blockchain, BridgeableChains, SimpleMap } from "app/utils";
 import BigNumber from "bignumber.js";
 import { Pool } from "zilswap-sdk";
 
@@ -22,13 +22,16 @@ export type TokenInfo = {
   address: string;
   hash: string;
   balance?: BigNumber;
-
+  
   // @deprecated
   pool?: Pool;
-
+  
   pools: Pool[];
   allowances?: { [index: string]: string };
   blockchain: Blockchain;
+  
+  logoAddress?: string;
+  bridgeFrom?: Blockchain;
 };
 
 export interface PoolInfo {

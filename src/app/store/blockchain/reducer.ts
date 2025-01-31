@@ -5,7 +5,7 @@ import { BlockchainState } from "./types";
 
 // const storedNetworkString = localStorage.getItem(LocalStorageKeys.Network);
 // const networks: { [index: string]: Network | undefined } = Network;
-const storedNetwork = Network.TestNet // networks[storedNetworkString || ""] || DefaultFallbackNetwork;
+const storedNetwork = Network.MainNet // networks[storedNetworkString || ""] || DefaultFallbackNetwork;
 
 const initial_state: BlockchainState = {
   ready: false,

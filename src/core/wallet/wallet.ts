@@ -2,16 +2,17 @@ import { Account } from "@zilliqa-js/account/dist/account";
 import { RPCResponse } from "@zilliqa-js/core";
 import { validation } from "@zilliqa-js/util";
 import { Zilliqa } from "@zilliqa-js/zilliqa";
+import { getErrorMessage } from "app/utils";
+import { BoltXNetworkMap, DefaultFallbackNetwork, RPCEndpoints, ZeevesNetworkMap, ZilPayNetworkMap } from "app/utils/constants";
+import { RPCHandler } from "core/utilities";
 import dayjs from "dayjs";
 import { WalletProvider } from "zilswap-sdk";
 import { Network } from 'zilswap-sdk/lib/constants';
-import { RPCHandler } from "core/utilities";
-import { BoltXNetworkMap, DefaultFallbackNetwork, RPCEndpoints, ZeevesNetworkMap, ZilPayNetworkMap } from "app/utils/constants";
+import { BoltXConnectedWallet } from "./BoltXConnectedWallet";
 import { ConnectWalletResult } from "./ConnectedWallet";
 import { PrivateKeyConnectedWallet } from "./PrivateKeyConnectedWallet";
-import { ZilPayConnectedWallet } from "./ZilPayConnectedWallet";
 import { ZeevesConnectedWallet } from "./ZeevesConnectedWallet";
-import { BoltXConnectedWallet } from "./BoltXConnectedWallet";
+import { ZilPayConnectedWallet } from "./ZilPayConnectedWallet";
 
 export const parseBalanceResponse = (balanceRPCResponse: RPCResponse<any, string>) => {
   let balanceResult: { balance: number } | null = null;
@@ -20,7 +21,7 @@ export const parseBalanceResponse = (balanceRPCResponse: RPCResponse<any, string
     balanceResult = RPCHandler.parseResponse(balanceRPCResponse);
   } catch (error) {
     // bypass error for addresses without any TXs.
-    if (error.message !== "Account is not created")
+    if (getErrorMessage(error) !== "Account is not created")
       throw error;
     balanceResult = {
       balance: 0,
@@ -118,7 +119,7 @@ export const connectWalletZeeves = async (zeeves: any): Promise<ConnectWalletRes
 
     return { wallet };
   } catch (err) {
-    console.error(err.stack);
+    console.error(err);
     throw new Error("Error connecting Zeeves wallet");
   }
 };

@@ -1,17 +1,23 @@
-import { CarbonSDK } from "carbon-js-sdk";
 import { Network } from "zilswap-sdk/lib/constants";
 
-export const netCarbonToZil = (network: CarbonSDK.Network): Network => {
+export enum CarbonNetwork {
+  MainNet = "mainnet",
+  TestNet = "testnet",
+  DevNet = "devnet",
+  LocalHost = "localhost"
+}
+
+export const netCarbonToZil = (network: CarbonNetwork): Network => {
   switch (network) {
-    case CarbonSDK.Network.MainNet: return Network.MainNet;
+    case CarbonNetwork.MainNet: return Network.MainNet;
     default: return Network.TestNet;
   }
 }
 
-export const netZilToCarbon = (network: Network): CarbonSDK.Network => {
+export const netZilToCarbon = (network: Network): CarbonNetwork => {
   switch (network) {
-    case Network.MainNet: return CarbonSDK.Network.MainNet;
-    default: return CarbonSDK.Network.DevNet;
+    case Network.MainNet: return CarbonNetwork.MainNet;
+    default: return CarbonNetwork.DevNet;
   }
 }
 
