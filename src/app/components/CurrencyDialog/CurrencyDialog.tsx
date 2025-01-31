@@ -2,23 +2,18 @@ import { Box, CircularProgress, DialogContent, DialogProps, IconButton, InputAdo
 import CloseIcon from "@material-ui/icons/CloseOutlined";
 import { DialogModal } from "app/components";
 import { actions } from "app/store";
-import { RootState, TokenInfo, TokenState, WalletState } from "app/store/types";
+import { add } from "app/store/token/actions";
+import { BridgeableTokenMapping, BridgeFormState, RootState, TokenInfo, TokenState, WalletState } from "app/store/types";
 import { AppTheme } from "app/theme/types";
-import { hexToRGBA, useTaskSubscriber, useAsyncTask } from "app/utils";
-import { HIDE_SWAP_TOKEN_OVERRIDE, LoadingKeys } from "app/utils/constants";
+import { Blockchain, BridgeableChains, CurrencyListType, hexToRGBA, HIDE_SWAP_TOKEN_OVERRIDE, LoadingKeys, useAsyncTask, useTaskSubscriber } from "app/utils";
 import BigNumber from "bignumber.js";
-import { Blockchain } from "carbon-js-sdk";
 import clsx from "clsx";
+import { zilParamsToMap } from "core/utilities";
+import { ZilDataValue } from "core/utilities/viewblock";
+import { ZilliqaValidate, ZilswapConnector } from "core/zilswap";
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { CurrencyList } from "./components";
-import { ZilliqaValidate, ZilswapConnector } from "core/zilswap"
-import { ZilDataValue } from "core/utilities/viewblock";
-import { zilParamsToMap } from "core/utilities";
-import { add } from "app/store/token/actions";
-
-
-export type CurrencyListType = "zil" | "ark-zil" | "bridge-zil" | "bridge-eth";
 
 export interface CurrencyDialogProps extends DialogProps {
   onSelectCurrency: (token: TokenInfo) => void;
@@ -40,6 +35,8 @@ const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProp
   const dispatch = useDispatch();
 
   const tokenState = useSelector<RootState, TokenState>(state => state.token);
+  const bridgeTokens = useSelector<RootState, BridgeableTokenMapping>(state => state.bridge.tokens);
+  const bridgeFormState = useSelector<RootState, BridgeFormState>(state => state.bridge.formState);
   const walletState = useSelector<RootState, WalletState>(state => state.wallet);
 
   const [runFetchContract, loading] = useAsyncTask("fetchTokenContract", (e) => { setError(e) });
@@ -60,13 +57,18 @@ const CurrencyDialog: React.FC<CurrencyDialogProps> = (props: CurrencyDialogProp
     }
     if (tokenList === 'zil') {
       tokens = tokens.filter(t => t.blockchain === Blockchain.Zilliqa)
+    } else {
+      // bridge-* token list
+      const fromChain = tokenList.replace(/^bridge-/i, "") as BridgeableChains
+      
+      tokens = tokens.filter(t => t.blockchain === fromChain && bridgeTokens.find(bt => t.hash === bt.tokenAddress && bt.chains[bridgeFormState.toBlockchain]))
     }
 
     setTokens(tokens.sort(sortFn));
 
     if (token && !tokens.find(t => t.address === token.address) && tokens.length > 0)
       onSelectCurrency(tokens[0]);
-  }, [tokenState.tokens, walletState.wallet, tokenList, token, onSelectCurrency, tokensWithPoolsOnly]);
+  }, [tokenState.tokens, walletState.wallet, tokenList, token, onSelectCurrency, tokensWithPoolsOnly, bridgeFormState.toBlockchain, bridgeTokens]);
 
   const onToggleUserToken = (token: TokenInfo) => {
     if (!tokenState.userSavedTokens.includes(token.address)) setSearch("");

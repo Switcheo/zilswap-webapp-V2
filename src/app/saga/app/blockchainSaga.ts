@@ -5,19 +5,19 @@ import { AppState, ObservedTx, TxReceipt, TxStatus, ZilSwapV2 } from 'zilswap-sd
 import { actions } from 'app/store';
 import { ChainInitAction } from 'app/store/blockchain/actions';
 import { StatsActionTypes } from 'app/store/stats/actions';
-import { TokenInfo, Transaction } from 'app/store/types';
+import { BridgeableToken, TokenInfo, Transaction } from 'app/store/types';
 import {
   BridgeWalletAction,
   WalletAction,
   WalletActionTypes
 } from 'app/store/wallet/actions';
-import { SimpleMap } from 'app/utils';
+import { Blockchain, chainConfigs, SimpleMap } from 'app/utils';
 import {
   BoltXNetworkMap,
+  ETH_ADDRESS,
   RPCEndpoints, WZIL_TOKEN_CONTRACT, ZIL_ADDRESS
 } from 'app/utils/constants';
 import { detachedToast } from 'app/utils/useToaster';
-import { Blockchain } from 'carbon-js-sdk';
 import { logger } from 'core/utilities';
 import { getConnectedBoltX } from 'core/utilities/boltx';
 import {
@@ -178,7 +178,7 @@ function* txObserved(payload: TxObservedPayload) {
   }
 }
 
-type StateChangeObservedPayload = {  };
+type StateChangeObservedPayload = {};
 function* stateChangeObserved(payload: StateChangeObservedPayload) {
 
 }
@@ -245,7 +245,57 @@ function* initialize(
       {} as SimpleMap<TokenInfo>
     );
 
-    logger('init chain set tokens', tokens);
+    const bridgeTokens: BridgeableToken[] = [];
+    for (const chainKey in chainConfigs[network]) {
+      const chain = chainKey as Blockchain;
+      const isZilChain = chain === Blockchain.Zilliqa;
+      const chainConfig = chainConfigs[network][chain]!;
+      for (const token of chainConfig.tokens) {
+        const key = `${chain}--${token.address.toLowerCase()}`;
+        if (!tokens[key]) {
+          tokens[key] = {
+            initialized: false,
+            registered: true,
+            whitelisted: false,
+            isWzil: false,
+            isZil: isZilChain && token.address === ETH_ADDRESS,
+            isZwap: false,
+            address: token.address.toLowerCase(),
+            decimals: token.decimals,
+            symbol: token.symbol,
+            name: token.symbol,
+            balance: undefined,
+            allowances: {},
+            pool: undefined,
+            blockchain: chain,
+
+            isPoolToken: false,
+            hash: token.address.toLowerCase(),
+            logoAddress: token.tokenLogoAddress,
+            pools: [],
+            bridgeFrom: chain,
+          }
+        } else {
+          tokens[key].bridgeFrom = chain;
+        }
+
+        bridgeTokens.push({
+          blockchain: chain,
+          symbol: token.symbol,
+          tokenAddress: token.address.toLowerCase(),
+          tokenManagerAddress: token.tokenManagerAddress,
+          decimals: token.decimals,
+          chains: token.bridgesTo.reduce((chains, chain) => {
+            chains[chain.toString()] = chainConfigs[network][chain]!.tokens.find(t => t.symbol === token.symbol)!.address.toLowerCase();
+            return chains;
+          }, {} as BridgeableToken["chains"]),
+        })
+      }
+    }
+
+
+    logger('init chain set tokens')
+    yield put(actions.Bridge.setTokens(bridgeTokens))
     yield put(actions.Token.init({ tokens }));
     yield put(actions.Wallet.update({ wallet }));
 

@@ -85,3 +85,10 @@ export namespace DataCoder {
   export const decodeDayjs = (input: number | undefined) => typeof input === "undefined" ? undefined : dayjs.unix(input);
   export const encodeDayjs = (input: dayjs.Dayjs | undefined) => input?.unix();
 }
+
+export const getErrorMessage = (error: unknown): string | undefined => {
+  if (typeof error === 'string') return error
+  if (!error) return undefined
+  if (typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message
+  return String(error)
+}

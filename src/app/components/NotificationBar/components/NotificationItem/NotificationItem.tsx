@@ -1,4 +1,3 @@
-import React, { forwardRef, useEffect, useState } from "react";
 import { Box, BoxProps, CircularProgress, IconButton, Link, Typography } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import FailIcon from "@material-ui/icons/CancelOutlined";
@@ -6,21 +5,21 @@ import CheckmarkIcon from "@material-ui/icons/CheckOutlined";
 import CloseIcon from "@material-ui/icons/CloseOutlined";
 import LaunchIcon from '@material-ui/icons/Launch';
 import TimeoutIcon from "@material-ui/icons/TimerOutlined";
+import { BridgeTx, RootState, TransactionState } from "app/store/types";
+import { AppTheme } from "app/theme/types";
+import { Blockchain, getExplorerLink, truncate, useNetwork } from "app/utils";
 import cls from "classnames";
 import { SnackbarContent, SnackbarKey, SnackbarProvider } from "notistack";
+import React, { forwardRef, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { TxStatus } from "zilswap-sdk";
-import { Network } from "zilswap-sdk/lib/constants";
-import { truncate, useNetwork } from "app/utils";
-import { AppTheme } from "app/theme/types";
-import { RootState, TransactionState } from "app/store/types";
 
 interface Props extends BoxProps {
   message: string,
   hash: string,
   providerRef: React.MutableRefObject<SnackbarProvider>,
   snackKey: SnackbarKey,
-  sourceBlockchain: string,
+  sourceBlockchain: Blockchain,
 }
 
 const useStyles = makeStyles((theme: AppTheme) => ({
@@ -58,26 +57,32 @@ const NotificationItem = forwardRef<HTMLDivElement, Props>((props, ref) => {
   const classes = useStyles();
   const network = useNetwork();
   const transactionState = useSelector<RootState, TransactionState>(state => state.transaction);
+  const bridgeTxs = useSelector<RootState, BridgeTx[]>(state => state.bridge.bridgeTxs);
   const [txStatus, setTxStatus] = useState<TxStatus | "pending" | "submitted" | undefined>();
 
-  useEffect(() => {
-    transactionState.observingTxs.forEach(tx => {
-      if (hash === tx.hash) {
-        setTxStatus("pending")
-      }
-    })
+  const bridgeTx = useMemo(() => bridgeTxs.find(tx => tx.sourceTxHash?.replace(/^0x/i, "") === hash),[bridgeTxs, hash])
 
-    transactionState.submittedTxs.forEach(tx => {
-      if (hash === tx.hash) {
-        if (tx.status === "confirmed" && message.toUpperCase() !== "transaction confirmed".toUpperCase()) {
-          providerRef.current.closeSnackbar(snackKey);
-        } else {
-          setTxStatus(tx.status);
-        }
-      }
-    })
-    // eslint-disable-next-line
-  }, [transactionState.submittedTxs, transactionState.observingTxs])
+  useEffect(() => {
+    if (bridgeTx) {
+      setTxStatus(bridgeTx.destinationTxHash ? "confirmed" : "pending")
+      return
+    }
+
+    const isObservedTx = transactionState.observingTxs.some(tx => tx.hash === hash)
+    if (isObservedTx) {
+      setTxStatus("pending")
+      return
+    }
+
+    const submittedTx = transactionState.submittedTxs.find(tx => tx.hash === hash)
+    if (!submittedTx) return
+
+    if (submittedTx?.status === "confirmed" && message.toUpperCase() !== "transaction confirmed".toUpperCase()) {
+      providerRef.current.closeSnackbar(snackKey);
+    } else {
+      setTxStatus(submittedTx.status);
+    }
+  }, [transactionState.submittedTxs, transactionState.observingTxs, bridgeTx, hash, message, providerRef, snackKey])
 
   const onClickDismiss = () => {
     return () => {
@@ -123,11 +128,10 @@ const NotificationItem = forwardRef<HTMLDivElement, Props>((props, ref) => {
     }
   }
 
-  const getHref = () => {
-    switch (sourceBlockchain) {
-      case "swth":
-      case "eth": return network === Network.MainNet ? `https://etherscan.io/search?q=${hash}` : `https://ropsten.etherscan.io/search?q=${hash}`;
-      default: return `https://viewblock.io/zilliqa/tx/${hash}?network=${network.toLowerCase()}`
+  const getHref = (blockchain = sourceBlockchain, txHash = hash) => {
+    switch (blockchain) {
+      case Blockchain.Zilliqa: return `https://viewblock.io/zilliqa/tx/${txHash}?network=${network.toLowerCase()}`
+      default: return getExplorerLink(txHash.replace(/^(0x)?/i, "0x"), network, blockchain)
     }
   }
 
@@ -143,11 +147,25 @@ const NotificationItem = forwardRef<HTMLDivElement, Props>((props, ref) => {
             rel="noopener noreferrer"
             target="_blank"
             href={getHref()}>
-            {"0x"}{truncate(hash)}
+            {truncate(hash).replace(/^(0x)?/i, "0x")}
             <LaunchIcon className={cls(classes.icon, classes.linkIcon)} />
           </Link>
         </Typography>
       }
+      {bridgeTx?.destinationTxHash && (
+        <Typography>
+          {" "} &gt;{" "}
+          <Link
+            className={classes.link}
+            underline="hover"
+            rel="noopener noreferrer"
+            target="_blank"
+            href={getHref(bridgeTx.dstChain, bridgeTx.destinationTxHash)}>
+            {truncate(bridgeTx.destinationTxHash).replace(/^(0x)?/i, "0x")}
+            <LaunchIcon className={cls(classes.icon, classes.linkIcon)} />
+          </Link>
+        </Typography>
+      )}
       <Box flexGrow={1} />
       <IconButton size="small" onClick={onClickDismiss()}>
         <CloseIcon className={classes.icon} />

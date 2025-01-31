@@ -1,6 +1,7 @@
 export { default as bytesToSize } from "./bytesToSize";
 export * from "./component";
 export * from "./constants";
+export { default as getLocalStored } from "./getLocalStored";
 export { default as gradients } from "./gradients";
 export { default as hexToRGB } from "./hexToRGB";
 export { default as hexToRGBA } from "./hexToRGBA";
@@ -15,6 +16,7 @@ export * from "./types";
 export { default as useAsyncTask } from "./useAsyncTask";
 export { default as useBlacklistAddress } from "./useBlacklistAddress";
 export { default as useBlockTime } from './useBlockTime';
+export { default as useBridgeableTokenFinder } from "./useBridgeableTokenFinder";
 export { default as useClaimEnabled } from "./useClaimEnabled";
 export { default as useErrorCatcher } from "./useErrorCatcher";
 export { default as useFilter } from "./useFilter";
@@ -31,5 +33,5 @@ export * from "./useToaster";
 export { default as useTokenFinder } from "./useTokenFinder";
 export * from "./useValueCalculators";
 export { default as useValueCalculators } from "./useValueCalculators";
-export { default as getLocalStored } from "./getLocalStored";
+export * from "./xbridge";
 

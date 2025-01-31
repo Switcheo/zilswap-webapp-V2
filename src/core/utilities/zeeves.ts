@@ -11,7 +11,7 @@ export const getConnectedZeeves = async () => {
       console.error("Zeeves is not supported");
     }
   } catch (err) {
-    console.error(err && err.stack ? err.stack : JSON.stringify(err));
+    console.error(err);
   }
 
   return null;

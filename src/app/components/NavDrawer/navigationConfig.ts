@@ -6,6 +6,10 @@ const navigationConfig: NavigationOptions[] = [{
     href: "/swap",
     icon: "SwapHoriz",
     show: true,
+  }, {
+    title: "xBridge",
+    href: "/bridge",
+    icon: "Bridge",
   }],
 }];
 

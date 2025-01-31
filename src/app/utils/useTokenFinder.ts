@@ -1,29 +1,24 @@
-import { useMemo } from "react";
-import { fromBech32Address, toBech32Address } from "@zilliqa-js/crypto";
-import { Blockchain } from "carbon-js-sdk";
-import { useSelector } from "react-redux";
+import { toBech32Address } from "@zilliqa-js/crypto";
 import { RootState, TokenInfo } from "app/store/types";
+import { useCallback } from "react";
+import { useSelector } from "react-redux";
+import { Blockchain } from "./constants";
 import { SimpleMap } from "./types";
+import { evmIncludes } from "./xbridge";
 
 const useTokenFinder = () => {
   const tokens = useSelector<RootState, SimpleMap<TokenInfo>>(store => store.token.tokens);
 
-  const tokenFinder = useMemo(() => {
-    return (address: string, blockchain: Blockchain = Blockchain.Zilliqa): TokenInfo | undefined => {
+  const tokenFinder = useCallback((address: string, blockchain: Blockchain = Blockchain.Zilliqa): TokenInfo | undefined => {
+    address = address.toLowerCase();
 
-      address = address.toLowerCase();
-      if (blockchain === Blockchain.Zilliqa && !address.startsWith("zil")) {
-        address = toBech32Address(address);
-      } else if (blockchain === Blockchain.Ethereum && address.startsWith("zil")) {
-        address = fromBech32Address(address);
-      }
-
-      if (blockchain === Blockchain.Ethereum && !address.startsWith("0x")) {
-        address = `0x${address}`;
-      }
-
-      return tokens[address];
+    if (blockchain === Blockchain.Zilliqa && !address.startsWith("zil")) {
+      address = toBech32Address(address);
+    } else if (evmIncludes(blockchain)) {
+      address = `${blockchain}--${address}`;
     }
+
+    return tokens[address];
   }, [tokens]);
 
   return tokenFinder;

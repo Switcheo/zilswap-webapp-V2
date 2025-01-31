@@ -21,7 +21,6 @@ import { ZILSWAPV2_CONTRACTS } from "zilswap-sdk/lib/constants";
 import SwapDetail from "./components/SwapDetail";
 import { ReactComponent as SwapSVG } from "./swap_logo.svg";
 import useGetSwapRoute from "app/utils/useGetSwapRoute";
-import { BN_ZERO } from "carbon-js-sdk/lib/util/number";
 
 const initialFormState = {
   inAmount: "0",
@@ -156,7 +155,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
   const isInsufficientReserves = useMemo(() => {
     let currentPoolIndex = 0
     let isInsufficientReserves = false
-    let inTokenAmount = swapFormState.inAmount ?? BN_ZERO
+    let inTokenAmount = swapFormState.inAmount ?? BIG_ZERO
     for (let i = 0; i < route.length - 1; i++) {
       // Assuming the path pools match the swap route, since swap route is derived from path via useGetSwapRoute()
       const inToken = route[i];
@@ -170,7 +169,7 @@ const Swap: React.FC<React.HTMLAttributes<HTMLDivElement>> = (props: any) => {
         inToken: inToken,
         outToken: outToken,
         inAmount: inTokenAmount,
-        outAmount: BN_ZERO
+        outAmount: BIG_ZERO
       });
       const outReserve = outToken.address === currentPool.token0Address ? currentPool.token0Reserve : currentPool.token1Reserve
       const shiftedOutReserve = outReserve.shiftedBy(-outToken.decimals)

@@ -21,7 +21,6 @@
     "authereum": "^0.1.14",
     "bignumber.js": "^9.0.0",
     "buffer": "^6.0.3",
-    "carbon-js-sdk": "^0.2.13",
     "classnames": "^2.2.6",
     "crypto-js": "^3.1.9-1",
     "dayjs": "^1.10.4",
@@ -101,7 +100,7 @@
     "eslint-plugin-import": "^2.25.2",
     "react-error-overlay": "6.0.9",
     "redux-devtools-extension": "^2.13.8",
-    "typescript": "^3.8.3"
+    "typescript": "^5.3.3"
   },
   "resolutions": {
     "react-error-overlay": "6.0.9",

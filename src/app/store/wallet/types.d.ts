@@ -1,4 +1,4 @@
-import { Blockchain } from "carbon-js-sdk";
+import { Blockchain } from "app/utils";
 import { ConnectedWallet } from "core/wallet";
 import { ConnectedBridgeWallet } from "core/wallet/ConnectedBridgeWallet";
 

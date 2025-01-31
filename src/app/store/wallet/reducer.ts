@@ -1,8 +1,8 @@
-import { Blockchain } from "carbon-js-sdk";
 import { ConnectedWallet, WalletConnectType } from "core/wallet";
 import { LocalStorageKeys } from "app/utils/constants";
 import { WalletActionTypes } from "./actions";
 import { WalletState } from "./types";
+import { Blockchain } from "app/utils";
 
 const initial_state: WalletState = {
   wallet: null,
