@@ -2,7 +2,8 @@
 
 This repository contains the UI code for the ZilSwap dApp.
 
-The webapp is hosted on canonical url: [https://zilswap.io](https://zilswap.io). IFPS hosting is coming soon.
+The hosted webapp was retired on 1 October 2026 and now returns HTTP 404.
+This repository is retained for incident reference and local builds.
 
 ## Development
 
@@ -15,11 +16,9 @@ yarn start
 
 The webapp will be running on [http://localhost:3000](http://localhost:3000) by default
 
-## Deployment
+## CI
 
-Pushing code to staging / master deploys to [staging](https://staging.zilswap.io) and [prod](https://zilswap.io) respectively.
-
-Please ensure to check that your code passes the linter with **no warnings** by running `yarn lint` before deploying. You will need to have eslint installed: `npm i -g eslint`.
+CI builds the app for source verification and incident reference. Hosted deployments are disabled.
 
 ## Contributing
 

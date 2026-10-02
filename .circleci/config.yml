@@ -42,35 +42,8 @@ jobs:
             echo "REACT_APP_RPC_ETH=$RPC_ETH" >> .env
             NODE_OPTIONS="--max_old_space_size=7168" yarn build --transpile-only
 
-      - persist_to_workspace:
-          root: .
-          paths:
-            - build
-
-  deploy:
-    docker:
-      - image: cimg/gcp:2023.08
-        auth:
-          username: $DOCKER_HUB_USERNAME
-          password: $DOCKER_HUB_PASSWORD
-    steps:
-      - attach_workspace:
-          at: .
-
-      - run:
-          name: activate GCP service account
-          command: |
-            echo $GCP_SERVICE_KEY > ${HOME}/gcloud-service-key.json
-            gcloud auth activate-service-account --key-file ${HOME}/gcloud-service-key.json
-            gcloud config set project $GCP_PROJECT_ID
-
-      - run:
-          name: deploy to gcp
-          command: |
-            gcloud storage cp -R build/* gs://zilswap-webapp-v2/
-
 workflows:
-  build-and-deploy:
+  build:
     jobs:
       - build:
           context: org-switcheo
@@ -78,7 +51,3 @@ workflows:
             branches:
               only:
                 - master
-      - deploy:
-          context: org-switcheo
-          requires:
-            - build
